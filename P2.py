@@ -176,10 +176,6 @@ class CParser(Parser):
     def num(self, p):
         return int(p[0])
 
-    @_('ID')
-    def num(self, p):
-        return int(p[0])
-
     @_('num')
     def unary(self, p):
         return p[0]
