@@ -90,6 +90,8 @@ class CParser(Parser):
     def term(self, p):
         return p[0] % p[2]
 
+    # Unary Operators
+
     @_('"!" unary')
     def unary(self, p):
         return not p[1]
