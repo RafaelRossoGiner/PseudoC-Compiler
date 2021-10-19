@@ -39,9 +39,9 @@ class CParser(Parser):
 
     @_('assignment ";"')
     def instruction(self, p):
+        print("h")
         return
 
-    #DEF
     @_('ID "=" assignment')
     def assignment(self, p):
         self.symbolValue[p[0]] = p[2]
@@ -49,10 +49,6 @@ class CParser(Parser):
 
     @_('expr')
     def assignment(self, p):
-        return
-
-    @_('expr')
-    def instruction(self, p):
         return
 
     @_('INT ID')
