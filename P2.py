@@ -24,6 +24,9 @@ class CLexer(Lexer):
 class CParser(Parser):
     tokens = CLexer.tokens
 
+
+    symbolValue = {}
+
     # Structure
     @_('instruction ";" sentence',
        '')
@@ -33,6 +36,7 @@ class CParser(Parser):
     @_('ID "=" instruction',
        'expr')
     def instruction(self, p):
+        self.symbolValue[p[0]] = p[2]
         return
 
     # Logical Operators
