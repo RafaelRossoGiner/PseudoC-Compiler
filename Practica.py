@@ -36,21 +36,14 @@ class CParser(Parser):
         return
 
     # Logical Operators
-    @_('"!" unary')
-    def unary(self, p):
-        return not p[1]
-
-    @_('"-" unary')
-    def num(self, p):
-        return - p[1]
-
-    @_('logical LOGICAND comparison')
-    def logical(self, p):
-        return p[0] and p[2]
 
     @_('logical LOGICOR comparison')
     def logical(self, p):
         return p[0] or p[2]
+
+    @_('logical LOGICAND comparison')
+    def logical(self, p):
+        return p[0] and p[2]
 
     @_('comparison EQUAL relation')
     def comparison(self, p):
@@ -97,8 +90,16 @@ class CParser(Parser):
     def term(self, p):
         return p[0] % p[2]
 
+    @_('"!" unary')
+    def unary(self, p):
+        return not p[1]
+
+    @_('"-" unary')
+    def num(self, p):
+        return - p[1]
+
     # Parenthesis
-    @_('"(" unary ")"')
+    @_('"(" expr ")"')
     def num(self, p):
         return p[1]
 
@@ -109,6 +110,10 @@ class CParser(Parser):
         return int(p[0])
 
     @_('num')
+    def unary(self, p):
+        return p[0]
+
+    @_('unary')
     def fact(self, p):
         return p[0]
 
@@ -133,10 +138,6 @@ class CParser(Parser):
         return p[0]
 
     @_('logical')
-    def unary(self, p):
-        return p[0]
-
-    @_('unary')
     def expr(self, p):
         return p[0]
 
