@@ -31,12 +31,13 @@ class CParser(Parser):
 
     symbolValue = {}
 
-    # Structure
+    # Program structure
     @_('instruction sentence',
        '')
     def sentence(self, p):
         return
 
+    # Assignations and basic instruction structure
     @_('type ID "=" assignment ";"')
     def instruction(self, p):
         if p[1] in self.symbolValue:
@@ -61,13 +62,13 @@ class CParser(Parser):
     def assignment(self, p):
         if p[0] in self.symbolValue:
             self.symbolValue[p[0]] = p[2]
+            return self.symbolValue[p[0]]
         else:
             raise RuntimeError('Variable ' + p[0] + ' is not declared')
-        return
 
     @_('expr')
     def assignment(self, p):
-        return
+        return p[0]
 
     # Functions
     @_('type ID',
@@ -96,7 +97,7 @@ class CParser(Parser):
     def instruction(self, p):
         return
 
-    # Logical Operators
+    # Logical operators
     @_('logical LOGICOR comparison')
     def logical(self, p):
         return p[0] or p[2]
@@ -129,7 +130,7 @@ class CParser(Parser):
     def relation(self, p):
         return p[0] >= p[2]
 
-    # Arithmetic
+    # Arithmetic operators
     @_('arithExpr "+" term')
     def arithExpr(self, p):
         return p[0] + p[2]
@@ -150,7 +151,7 @@ class CParser(Parser):
     def term(self, p):
         return p[0] % p[2]
 
-    # Unary Operators
+    # Unary operators
 
     @_('"!" unary')
     def unary(self, p):
@@ -165,11 +166,18 @@ class CParser(Parser):
     def num(self, p):
         return p[1]
 
-    # Conversion Hierarchy
+    # Conversion hierarchy
     @_('INT',
        'VOID',)
     def type(self, p):
         return p[0]
+
+    @_('ID')
+    def num(self, p):
+        if p[0] in self.symbolValue:
+            return self.symbolValue[p[0]]
+        else:
+            raise RuntimeError('Variable ' + p[0] + ' is not declared')
 
     @_('INTVALUE',
        'FLOATVALUE')
@@ -218,3 +226,6 @@ if __name__ == '__main__':
     for token in tokenizedText:
         print(token)
     parser.parse(lexer.tokenize(text))
+
+    print(parser.symbolValue['b'])
+
