@@ -41,6 +41,7 @@ class CParser(Parser):
     def instruction(self, p):
         return
 
+    #DEF
     @_('ID "=" assignment')
     def assignment(self, p):
         self.symbolValue[p[0]] = p[2]
