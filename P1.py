@@ -3,8 +3,9 @@ from sly import Parser
 
 
 class CLexer(Lexer):
-    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE}
-    literals = {'=', '+', '-', '/', '*', '!', ';', '(', ')'}
+    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE
+              INT, VOID}
+    literals = {'=', '+', '-', '/', '*', '!', ';', '(', ')', '{', '}'}
 
     # Tokens
     EQUAL = r'=='
@@ -20,6 +21,9 @@ class CLexer(Lexer):
     ignore_space = ' '
     ignore_newline = r'\n'
 
+    # Reserved keywords
+    ID['int'] = INT
+    ID['void'] = VOID
 
 class CParser(Parser):
     tokens = CLexer.tokens
@@ -33,6 +37,11 @@ class CParser(Parser):
     @_('ID "=" instruction',
        'expr')
     def instruction(self, p):
+        return
+
+    @('VOID ID "(" params ")"')
+    def instruction(self, p):
+
         return
 
     # Logical Operators
