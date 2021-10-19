@@ -21,8 +21,8 @@ class CLexer(Lexer):
     ignore_space = ' '
     ignore_newline = r'\n'
     # Reserved keywords
-    ID['int'] = INT
-    ID['void'] = VOID
+    #ID['int'] = INT
+    #ID['void'] = VOID
 
 
 class CParser(Parser):
