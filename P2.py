@@ -37,27 +37,36 @@ class CParser(Parser):
     def sentence(self, p):
         return
 
+    @_('type ID "=" assignment ";"')
+    def instruction(self, p):
+        if p[1] in self.symbolValue:
+            raise RuntimeError('Redeclaration of variable ' + p[1] + ' is not allowed')
+        else:
+            self.symbolValue[p[1]] = p[3]
+        return
+
+    @_('type ID ";"')
+    def instruction(self, p):
+        if p[1] in self.symbolValue:
+            raise RuntimeError('Redeclaration of variable ' + p[1] + ' is not allowed')
+        else:
+            self.symbolValue[p[1]] = 0
+        return
+
     @_('assignment ";"')
     def instruction(self, p):
         return
 
-    #DEF
     @_('ID "=" assignment')
     def assignment(self, p):
-        self.symbolValue[p[0]] = p[2]
+        if p[0] in self.symbolValue:
+            self.symbolValue[p[0]] = p[2]
+        else:
+            raise RuntimeError('Variable ' + p[0] + ' is not declared')
         return
 
     @_('expr')
     def assignment(self, p):
-        return
-
-    @_('expr')
-    def instruction(self, p):
-        return
-
-    @_('INT ID')
-    def instruction(self, p):
-        self.symbolValue[p[1]] = 0
         return
 
     # Functions
@@ -164,6 +173,10 @@ class CParser(Parser):
 
     @_('INTVALUE',
        'FLOATVALUE')
+    def num(self, p):
+        return int(p[0])
+
+    @_('ID')
     def num(self, p):
         return int(p[0])
 
