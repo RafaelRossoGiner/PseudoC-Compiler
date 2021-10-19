@@ -3,9 +3,9 @@ from sly import Parser
 
 
 class CLexer(Lexer):
-    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE
+    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
               INT, VOID}
-    literals = {'=', '+', '-', '/', '*', '!', ';', '(', ')'}
+    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}'}
 
     # Tokens
     EQUAL = r'=='
@@ -21,8 +21,8 @@ class CLexer(Lexer):
     ignore_space = ' '
     ignore_newline = r'\n'
     # Reserved keywords
-    #ID['int'] = INT
-    #ID['void'] = VOID
+    ID['int'] = INT
+    ID['void'] = VOID
 
 
 class CParser(Parser):
@@ -32,14 +32,22 @@ class CParser(Parser):
     symbolValue = {}
 
     # Structure
-    @_('instruction ";" sentence',
+    @_('instruction sentence',
        '')
     def sentence(self, p):
         return
 
-    @_('ID "=" instruction')
+    @_('assignment ";"')
     def instruction(self, p):
-        self.symbolValue[p[0]] = int(p[2])
+        return
+
+    @_('ID "=" assignment')
+    def assignment(self, p):
+        self.symbolValue[p[0]] = p[2]
+        return
+
+    @_('expr')
+    def assignment(self, p):
         return
 
     @_('expr')
@@ -51,12 +59,34 @@ class CParser(Parser):
         self.symbolValue[p[1]] = 0
         return
 
-    @('VOID ID "(" params ")"')
+    # Functions
+    @_('type ID',
+       '')
+    def param(self, p):
+        return
+
+    @_('param "," params',
+      '')
+    def params(self, p):
+        return
+
+    @_('ID "(" params ")"')
+    def function(self, p):
+        return
+
+    @_('type function')
+    def functionHeader(self, p):
+        return
+
+    @_('functionHeader ";"')
+    def instruction(self, p):
+        return
+
+    @_('functionHeader "{" sentence "}"')
     def instruction(self, p):
         return
 
     # Logical Operators
-
     @_('logical LOGICOR comparison')
     def logical(self, p):
         return p[0] or p[2]
@@ -126,6 +156,11 @@ class CParser(Parser):
         return p[1]
 
     # Conversion Hierarchy
+    @_('INT',
+       'VOID',)
+    def type(self, p):
+        return p[0]
+
     @_('INTVALUE',
        'FLOATVALUE')
     def num(self, p):
