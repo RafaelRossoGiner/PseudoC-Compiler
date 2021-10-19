@@ -33,10 +33,18 @@ class CParser(Parser):
     def sentence(self, p):
         return
 
-    @_('ID "=" instruction',
-       'expr')
+    @_('ID "=" instruction')
     def instruction(self, p):
-        self.symbolValue[p[0]] = p[2]
+        self.symbolValue[p[0]] = int(p[2])
+        return
+
+    @_('expr')
+    def instruction(self, p):
+        return
+
+    @_('INT ID')
+    def instruction(self, p):
+        self.symbolValue[p[1]] = 0
         return
 
     # Logical Operators
