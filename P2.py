@@ -5,7 +5,7 @@ from sly import Parser
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
               INT, VOID}
-    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}'}
+    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ','}
 
     # Tokens
     EQUAL = r'=='
@@ -15,11 +15,12 @@ class CLexer(Lexer):
     LOGICAND = r'&&'
     LOGICOR = r'\|\|'
     ID = r'[a-zA-Z_][a-zA-Z0-9_]*'
-    INTVALUE = r'[0-9]+'
-    FLOATVALUE = r'[0-9]+.[0-9]+'
+    FLOATVALUE = r'[0-9]+[.][0-9]+[f]?'
+    INTVALUE = r'[0-9]+[f]?'
 
     ignore_space = ' '
     ignore_newline = r'\n'
+
     # Reserved keywords
     ID['int'] = INT
     ID['void'] = VOID
@@ -27,7 +28,6 @@ class CLexer(Lexer):
 
 class CParser(Parser):
     tokens = CLexer.tokens
-
 
     symbolValue = {}
 
@@ -38,24 +38,34 @@ class CParser(Parser):
         return
 
     # Assignations and basic instruction structure
-    @_('type ID "=" assignment ";"')
+    @_('type declaration ";"',
+       'type declaration "," anotherDeclaration')
     def instruction(self, p):
-        if p[1] in self.symbolValue:
-            raise RuntimeError('Redeclaration of variable ' + p[1] + ' is not allowed')
-        else:
-            self.symbolValue[p[1]] = p[3]
-        return
-
-    @_('type ID ";"')
-    def instruction(self, p):
-        if p[1] in self.symbolValue:
-            raise RuntimeError('Redeclaration of variable ' + p[1] + ' is not allowed')
-        else:
-            self.symbolValue[p[1]] = 0
         return
 
     @_('assignment ";"')
     def instruction(self, p):
+        return
+
+    @_('ID "=" assignment')
+    def declaration(self, p):
+        if p[0] in self.symbolValue:
+            raise RuntimeError('Redeclaration of variable ' + p[0] + ' is not allowed')
+        else:
+            self.symbolValue[p[0]] = p[2]
+        return
+
+    @_('ID')
+    def declaration(self, p):
+        if p[0] in self.symbolValue:
+            raise RuntimeError('Redeclaration of variable ' + p[0] + ' is not allowed')
+        else:
+            self.symbolValue[p[0]] = 0
+        return
+
+    @_('declaration "," anotherDeclaration',
+       'declaration ";"')
+    def anotherDeclaration(self, p):
         return
 
     @_('ID "=" assignment')
@@ -100,11 +110,11 @@ class CParser(Parser):
     # Logical operators
     @_('logical LOGICOR comparison')
     def logical(self, p):
-        return p[0] or p[2]
+        return bool(p[0] or p[2])
 
     @_('logical LOGICAND comparison')
     def logical(self, p):
-        return p[0] and p[2]
+        return bool(p[0] and p[2])
 
     @_('comparison EQUAL relation')
     def comparison(self, p):
@@ -145,7 +155,7 @@ class CParser(Parser):
 
     @_('term "/" fact')
     def term(self, p):
-        return p[0] / p[2]
+        return int(p[0] / p[2])
 
     @_('term "%" fact')
     def term(self, p):
@@ -168,9 +178,14 @@ class CParser(Parser):
 
     # Conversion hierarchy
     @_('INT',
-       'VOID',)
+       'VOID')
     def type(self, p):
         return p[0]
+
+    @_('INTVALUE',
+       'FLOATVALUE')
+    def num(self, p):
+        return int(float(p[0].replace('f', '')))
 
     @_('ID')
     def num(self, p):
@@ -178,11 +193,6 @@ class CParser(Parser):
             return self.symbolValue[p[0]]
         else:
             raise RuntimeError('Variable ' + p[0] + ' is not declared')
-
-    @_('INTVALUE',
-       'FLOATVALUE')
-    def num(self, p):
-        return int(p[0])
 
     @_('num')
     def unary(self, p):
@@ -227,5 +237,4 @@ if __name__ == '__main__':
         print(token)
     parser.parse(lexer.tokenize(text))
 
-    print(parser.symbolValue['b'])
-
+    print(parser.symbolValue['e'])
