@@ -1,6 +1,7 @@
 from sly import Lexer
 from sly import Parser
 
+
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR,
               ID, INTVALUE, FLOATVALUE, INT, VOID}
@@ -83,11 +84,11 @@ class CParser(Parser):
 
     @_('logical LOGICOR comparison')
     def logical(self, p):
-        return bool(p[0] or p[2])
+        return p[0] or p[2]
 
     @_('logical LOGICAND comparison')
     def logical(self, p):
-        return bool(p[0] and p[2])
+        return p[0] and p[2]
 
     @_('comparison EQUAL relation')
     def comparison(self, p):
@@ -128,7 +129,7 @@ class CParser(Parser):
 
     @_('term "/" fact')
     def term(self, p):
-        return int(p[0] / p[2])
+        return p[0] / p[2]
 
     @_('term "%" fact')
     def term(self, p):
@@ -209,5 +210,3 @@ if __name__ == '__main__':
     for token in tokenizedText:
         print(token)
     parser.parse(lexer.tokenize(text))
-
-    print(parser.symbolValue['e'])
