@@ -30,6 +30,7 @@ class CParser(Parser):
 
 
     symbolValue = {}
+    stackSymbolValue = {}
 
     # Program structure
     @_('instruction sentence',
@@ -71,12 +72,12 @@ class CParser(Parser):
         return p[0]
 
     # Functions
-    @_('type ID',
-       '')
+    @_('type ID ","',
+       'type ID')
     def param(self, p):
         return
 
-    @_('param "," params',
+    @_('param params',
       '')
     def params(self, p):
         return

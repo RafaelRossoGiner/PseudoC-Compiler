@@ -3,7 +3,8 @@ from sly import Parser
 
 
 class CLexer(Lexer):
-    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE}
+    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
+              INT, VOID}
     literals = {'=', '+', '-', '/', '*', '!', ';', '(', ')', '{', '}'}
 
     # Tokens
@@ -20,22 +21,54 @@ class CLexer(Lexer):
     ignore_space = ' '
     ignore_newline = r'\n'
 
+    # Reserved keywords
+    ID['int'] = INT
+
 class CParser(Parser):
     tokens = CLexer.tokens
 
-    # Structure
-    @_('instruction ";" sentence',
+    symbolValue = {}
+
+    # Program structure
+    @_('instruction sentence',
        '')
     def sentence(self, p):
         return
 
-    @_('ID "=" instruction',
-       'expr')
+    # Assignations and basic instruction structure
+    @_('type ID "=" assignment ";"')
+    def instruction(self, p):
+        if p[1] in self.symbolValue:
+            raise RuntimeError('Redeclaration of variable ' + p[1] + ' is not allowed')
+        else:
+            self.symbolValue[p[1]] = p[3]
+        return
+
+    @_('type ID ";"')
+    def instruction(self, p):
+        if p[1] in self.symbolValue:
+            raise RuntimeError('Redeclaration of variable ' + p[1] + ' is not allowed')
+        else:
+            self.symbolValue[p[1]] = 0
+        return
+
+    @_('assignment ";"')
     def instruction(self, p):
         return
 
-    # Logical Operators
+    @_('ID "=" assignment')
+    def assignment(self, p):
+        if p[0] in self.symbolValue:
+            self.symbolValue[p[0]] = p[2]
+            return self.symbolValue[p[0]]
+        else:
+            raise RuntimeError('Variable ' + p[0] + ' is not declared')
 
+    @_('expr')
+    def assignment(self, p):
+        return p[0]
+
+    # Logical Operators
     @_('logical LOGICOR comparison')
     def logical(self, p):
         return p[0] or p[2]
@@ -105,6 +138,18 @@ class CParser(Parser):
         return p[1]
 
     # Conversion Hierarchy
+    @_('INT',
+       'VOID',)
+    def type(self, p):
+        return p[0]
+
+    @_('ID')
+    def num(self, p):
+        if p[0] in self.symbolValue:
+            return self.symbolValue[p[0]]
+        else:
+            raise RuntimeError('Variable ' + p[0] + ' is not declared')
+
     @_('INTVALUE',
        'FLOATVALUE')
     def num(self, p):
