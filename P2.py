@@ -4,7 +4,7 @@ from sly import Parser
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
-              INT, VOID}
+              INT, VOID, RETURN}
     literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ','}
 
     # Tokens
@@ -18,23 +18,39 @@ class CLexer(Lexer):
     FLOATVALUE = r'[0-9]+[.][0-9]+[f]?'
     INTVALUE = r'[0-9]+[f]?'
 
-    ignore_space = ' '
-    ignore_newline = r'\n'
+    ignore_space = r' '
+    ignore_tabs = r'\t'
+    ignore_comments = r'//.*'
 
     # Reserved keywords
     ID['int'] = INT
     ID['void'] = VOID
+    ID['return'] = RETURN
+
+    # Error and Indexing management
+    @_(r'\n+')
+    def ignore_newline(self, t):
+        self.lineno += len(t.value)
+
+    # Error handling rule
+    def error(self, t):
+        print("Illegal character '%s'" % t.value[0])
+        self.index += 1
 
 
 class CParser(Parser):
     tokens = CLexer.tokens
+    start = 'sentence'
 
     symbolValue = {}
-    stackSymbolValue = {}
+    functions = {}
 
     # Program structure
-    @_('instruction sentence',
-       '')
+    @_('instruction sentence')
+    def sentence(self, p):
+        return p[0]
+
+    @_('')
     def sentence(self, p):
         return
 
@@ -42,32 +58,32 @@ class CParser(Parser):
     @_('type declaration ";"',
        'type declaration "," anotherDeclaration')
     def instruction(self, p):
-        return
+        return p[1]
 
     @_('assignment ";"')
     def instruction(self, p):
-        return
+        return p[0]
 
     @_('ID "=" assignment')
     def declaration(self, p):
         if p[0] in self.symbolValue:
-            raise RuntimeError('Redeclaration of variable ' + p[0] + ' is not allowed')
+            raise RuntimeError('line ' + str(p.lineno) + ': ' + 'Redeclaration of variable ' + p[0] + ' is not allowed')
         else:
             self.symbolValue[p[0]] = p[2]
-        return
+        return p[0]
 
     @_('ID')
     def declaration(self, p):
         if p[0] in self.symbolValue:
-            raise RuntimeError('Redeclaration of variable ' + p[0] + ' is not allowed')
+            raise RuntimeError('line ' + str(p.lineno) + ': ' + 'Redeclaration of variable ' + p[0] + ' is not allowed')
         else:
             self.symbolValue[p[0]] = 0
-        return
+        return p[0]
 
     @_('declaration "," anotherDeclaration',
        'declaration ";"')
     def anotherDeclaration(self, p):
-        return
+        return p[0]
 
     @_('ID "=" assignment')
     def assignment(self, p):
@@ -75,38 +91,77 @@ class CParser(Parser):
             self.symbolValue[p[0]] = p[2]
             return self.symbolValue[p[0]]
         else:
-            raise RuntimeError('Variable ' + p[0] + ' is not declared')
+            raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a declared Variable')
 
     @_('expr')
     def assignment(self, p):
         return p[0]
 
     # Functions
-    @_('type ID ","',
-       'type ID')
+    @_('type ID')
     def param(self, p):
-        return
+        if p[1] in self.symbolValue:
+            raise RuntimeError('line ' + str(p.lineno) + ': ' + 'Redeclaration of variable ' + p[0] + ' is not allowed')
+        else:
+            self.symbolValue[p[1]] = 0
+        return p[1]
 
-    @_('param params',
-      '')
+    @_('param "," params',
+       'param')
     def params(self, p):
+        return 0
+
+    @_('type "," typeDec',
+       'type')
+    def typeDec(self, p):
+        return 0
+
+    @_('expr "," callParams',
+       'expr')
+    def callParams(self, p):
+        return 0
+
+    @_('ID "(" callParams ")"',
+       'ID "(" ")"')
+    def num(self, p):
+        if p[0] in self.functions:
+            pass
+        else:
+            raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a declared Function')
+        return 0
+
+    @_('RETURN expr ";"')
+    def retInstruction(self, p):
         return
 
-    @_('ID "(" params ")"')
-    def function(self, p):
-        return
+    @_('type ID  "(" params ")"',
+       'type ID "(" typeDec ")"',
+       'type ID "(" ")"')
+    def functionDecl(self, p):
+        self.symbolValue[p[1]] = 0
+        self.functions[p[1]] = 0
+        return p[1]
 
-    @_('type function')
-    def functionHeader(self, p):
-        return
+    @_('VOID ID  "(" params ")"',
+       'VOID ID "(" typeDec ")"',
+       'VOID ID "(" ")"')
+    def voidFunctionDecl(self, p):
+        self.symbolValue[p[1]] = 0
+        self.functions[p[1]] = 0
+        return p[1]
 
-    @_('functionHeader ";"')
+    @_('functionDecl ";"',
+       'voidFunctionDecl ";"')
     def instruction(self, p):
-        return
+        return 0
 
-    @_('functionHeader "{" sentence "}"')
+    @_('functionDecl "{" sentence retInstruction "}"')
     def instruction(self, p):
-        return
+        return 0
+
+    @_('voidFunctionDecl "{" sentence "}"')
+    def instruction(self, p):
+        return 0
 
     # Logical operators
     @_('logical LOGICOR comparison')
@@ -178,8 +233,8 @@ class CParser(Parser):
         return p[1]
 
     # Conversion hierarchy
-    @_('INT',
-       'VOID')
+    # PlaceHolder type function for scalability with more types
+    @_('INT')
     def type(self, p):
         return p[0]
 
@@ -193,7 +248,10 @@ class CParser(Parser):
         if p[0] in self.symbolValue:
             return self.symbolValue[p[0]]
         else:
-            raise RuntimeError('Variable ' + p[0] + ' is not declared')
+            if p[0] in self.functions:
+                raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' must be called as a Function')
+            else:
+                raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a declared Symbol')
 
     @_('num')
     def unary(self, p):
@@ -227,15 +285,28 @@ class CParser(Parser):
     def expr(self, p):
         return p[0]
 
+    # Simple error management
+    def error(self, p):
+        if p:
+            print('\033[91m', '\033[1m', "Syntax error at token", p.type, ", line: ", p.lineno)
+            # Just discard the token and tell the parser it's okay.
+            # self.errok()
+        else:
+            print("Syntax error at EOF")
+
 
 if __name__ == '__main__':
     lexer = CLexer()
     parser = CParser()
 
-    text = open("Source.c").read()
+    text = open("Source2.c").read()
     tokenizedText = lexer.tokenize(text)
+    print("\n =========[ Lexer ] ===========")
     for token in tokenizedText:
-        print(token)
-    parser.parse(lexer.tokenize(text))
+        print("token:", token.type, ", lexvalue:", token.value)
 
-    print(parser.symbolValue['e'])
+    print("\n =========[ Parser ] ===========")
+    try:
+        parser.parse(lexer.tokenize(text))
+    except RuntimeError as e:
+        print('\033[91m', '\033[1m', e)
