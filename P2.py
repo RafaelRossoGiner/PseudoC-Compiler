@@ -185,12 +185,12 @@ class CParser(Parser):
         return 0
 
     # Logical operators
-    @_('logical LOGICOR comparison')
-    def logical(self, p):
+    @_('logicalOR LOGICOR logicalAND')
+    def logicalOR(self, p):
         return bool(p[0] or p[2])
 
-    @_('logical LOGICAND comparison')
-    def logical(self, p):
+    @_('logicalAND LOGICAND comparison')
+    def logicalAND(self, p):
         return bool(p[0] and p[2])
 
     @_('comparison EQUAL relation')
@@ -299,10 +299,14 @@ class CParser(Parser):
         return p[0]
 
     @_('comparison')
-    def logical(self, p):
+    def logicalAND(self, p):
         return p[0]
 
-    @_('logical')
+    @_('logicalAND')
+    def logicalOR(self, p):
+        return p[0]
+
+    @_('logicalOR')
     def expr(self, p):
         return p[0]
 
