@@ -1,0 +1,8 @@
+x := true;
+print x;
+y := false and x;
+print not y;
+print x and not y;
+print not (x and not y);
+x := not x;
+z := true or not (x and not y);
