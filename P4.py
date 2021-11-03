@@ -75,19 +75,12 @@ class CParser(Parser):
             return
 
     class NodeDeclaration(Node):
-        def __init__(self, idname):
+        def __init__(self, idname, line):
             global symbolValue
             if idname not in symbolValue:
                 symbolValue[idname] = 0
             else:
                 super().PrintError("Símbolo ya declarado anteriormente", line)
-
-    class NodeNum(Node):
-        def __init__(self, v):
-            self.value = v
-
-        def execute(self):
-            return self.value
 
     class NodeId(Node):
         def __init__(self, idname):
@@ -116,7 +109,7 @@ class CParser(Parser):
             if op == '+':
                 result = self.n1 + self.n2
             elif op == '-':
-                result = self.n1.self.n2
+                result = self.n1 - self.n2
             elif op == '*':
                 result = self.n1 * self.n2
             elif op == '/':
@@ -209,7 +202,7 @@ class CParser(Parser):
 
     @_('ID')
     def declaration(self, p):
-        self.NodeDeclaration(p[0])
+        self.NodeDeclaration(p[0], p.lineno)
 
     @_('declaration "," anotherDeclaration',
        'declaration ";"')
@@ -228,7 +221,7 @@ class CParser(Parser):
     @_('type ID',
        'VOID ID')
     def param(self, p):
-        self.NodeDeclaration(p[1])
+        self.NodeDeclaration(p[1], p.lineno)
         return p[1]
 
     @_('param "," params',
@@ -377,7 +370,7 @@ class CParser(Parser):
     # Parenthesis
     @_('"(" expr ")"')
     def num(self, p):
-        return p[1]
+        return self.NodeNum
 
     # Conversion hierarchy
     # PlaceHolder type function for scalability with more types
@@ -392,13 +385,8 @@ class CParser(Parser):
 
     @_('ID')
     def num(self, p):
-        if p[0] in symbolValue:
-            return symbolValue[p[0]]
-        else:
-            if p[0] in self.functions:
-                raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' must be called as a Function')
-            else:
-                raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a declared Symbol')
+        node = self.NodeId(p[0])
+        return node.execute()
 
     @_('num')
     def unary(self, p):
