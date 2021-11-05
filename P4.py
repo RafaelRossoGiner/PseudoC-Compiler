@@ -17,16 +17,18 @@ class bcolors:
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
-              INT, VOID, RETURN}
-    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ','}
+              INT, VOID, RETURN, PRINTF, STRING}
+    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ',', '"'}
 
     # Tokens
+
     EQUAL = r'=='
     LESSTHANEQUAL = r'<='
     GREATERTHANEQUAL = r'>='
     NOTEQUAL = r'!='
     LOGICAND = r'&&'
     LOGICOR = r'\|\|'
+    STRING = r'.+'
     ID = r'[a-zA-Z_][a-zA-Z0-9_]*'
     FLOATVALUE = r'[0-9]+[.][0-9]+[f]?'
     INTVALUE = r'[0-9]+[f]?'
@@ -39,6 +41,7 @@ class CLexer(Lexer):
     ID['int'] = INT
     ID['void'] = VOID
     ID['return'] = RETURN
+    ID['printf'] = PRINTF
 
     # Error and Indexing management
     @_(r'\n+')
@@ -185,7 +188,7 @@ class CParser(Parser):
     def sentence(self, p):
         return
 
-    # Assignations and basic instruction structure
+    # Assignations
     @_('type declaration ";"',
        'type declaration "," anotherDeclaration')
     def instruction(self, p):
@@ -217,7 +220,17 @@ class CParser(Parser):
     def assignment(self, p):
         return p[0]
 
-    # Functions
+    # Built-in Functions
+    @_('PRINTF "(" """ STRING """ ")" ";"')
+    def instruction(self, p):
+        print(p[2])
+
+    # PLACEHOLDER
+    # @_('PRINTF "(" STRING "," callParams ")" ";"')
+    # def instruction(self, p):
+    #     print(p[2])
+
+    # User Functions
     @_('type ID',
        'VOID ID')
     def param(self, p):
@@ -227,17 +240,17 @@ class CParser(Parser):
     @_('param "," params',
        'param')
     def params(self, p):
-        return 0
+        pass
 
     @_('type "," typeDec',
        'type')
     def typeDec(self, p):
-        return 0
+        pass
 
     @_('expr "," callParams',
        'expr')
     def callParams(self, p):
-        return 0
+        pass
 
     @_('ID "(" callParams ")"',
        'ID "(" ")"')

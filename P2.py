@@ -324,7 +324,7 @@ if __name__ == '__main__':
     lexer = CLexer()
     parser = CParser()
 
-    text = open("Source2.c").read()
+    text = open("Source.c").read()
     tokenizedText = lexer.tokenize(text)
     print("\n =========[ Lexer ] ===========")
     for token in tokenizedText:

@@ -28,7 +28,7 @@ int der(int f, int c, int y);
 int fun (int g, int d) {
     int z = a;
     x = c + empty() + fun(d, a); // Ok
-
+    printf("ey");
     x = c + empty() + fun(d+test(x,z-2), a) - der();
     //if no return instruction is set, the parser gives a syntax error
     return c - empty() + der();
