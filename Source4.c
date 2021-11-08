@@ -6,6 +6,8 @@ int j = 2*a-3;
 printf("ey");
 
 printf("ey, el valor de a es %d y el de j es %d", a, j);
+printf("ey, el valor de a es %d y el de j es %d", a);
+printf("ey, el valor de a es %d y el de j es %d", a, j, j);
 
 //This gives an error since "a" is already a variable
 //int a(int, int, int);

@@ -3,6 +3,7 @@ from sly import Parser
 
 global symbolValue
 
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -169,13 +170,22 @@ class CParser(Parser):
             return result
 
     class NodePrint(Node):
-        def __init__(self, string, *values):
+        def __init__(self, line, string, *values):
             # to be implemented
-            if len(values) > 0:
-                values = values[0]
-                for val in values:
-                    string = string.replace('%d', str(val), 1)
-            print(string)
+            if values:
+                try:
+                    values = list(values[0])
+                except TypeError as te:
+                    values = list(values)
+
+                values = values[::-1]
+
+                if len(values) != string.count('%d'):
+                    super().PrintError("El número de especificadores no equivale a los parametros de la funcion", line)
+                else:
+                    for val in values:
+                        string = string.replace('%d', str(val), 1)
+                    print(string)
             pass
 
         def execute(self):
@@ -226,11 +236,11 @@ class CParser(Parser):
     # Built-in Functions
     @_('PRINTF "(" STRING "," callParams ")" ";"')
     def instruction(self, p):
-        self.NodePrint(p.STRING, p.callParams)
+        self.NodePrint(p.lineno, p.STRING, p.callParams)
 
     @_('PRINTF "(" STRING ")" ";" ')
     def instruction(self, p):
-        self.NodePrint(p.STRING)
+        self.NodePrint(p.lineno, p.STRING)
 
     # PLACEHOLDER
     # @_('PRINTF "(" STRING "," callParams ")" ";"')
@@ -256,11 +266,12 @@ class CParser(Parser):
 
     @_('expr "," callParams')
     def callParams(self, p):
-        return [p.expr, p.callParams]
+        p.callParams.append(p.expr)
+        return p.callParams
 
     @_('expr')
     def callParams(self, p):
-        return p.expr
+        return [p.expr]
 
     @_('ID "(" callParams ")"',
        'ID "(" ")"')
