@@ -28,7 +28,12 @@ class CLexer(Lexer):
     NOTEQUAL = r'!='
     LOGICAND = r'&&'
     LOGICOR = r'\|\|'
-    STRING = r'.+'
+
+    @_(r'".+"')
+    def STRING(self, t):
+        t.value = t.value[1:-1]
+        return t
+
     ID = r'[a-zA-Z_][a-zA-Z0-9_]*'
     FLOATVALUE = r'[0-9]+[.][0-9]+[f]?'
     INTVALUE = r'[0-9]+[f]?'
@@ -164,20 +169,18 @@ class CParser(Parser):
             return result
 
     class NodePrint(Node):
-        def __init__(self, p1, p2, op):
-            self.operator = op
-
-            if type(p1) is not bool:
-                p1 = False if p1 == 0 else True
-            if type(p2) is not bool:
-                p2 = False if p2 == 0 else True
-
-            self.n1 = p1;
-            self.n2 = p2;
+        def __init__(self, string, *values):
+            # to be implemented
+            if len(values) > 0:
+                values = values[0]
+                for val in values:
+                    string = string.replace('%d', str(val), 1)
+            print(string)
+            pass
 
         def execute(self):
-            print()
-            return
+            # to be implemented
+            pass
 
     # Program structure
     @_('instruction sentence')
@@ -221,9 +224,13 @@ class CParser(Parser):
         return p[0]
 
     # Built-in Functions
-    @_('PRINTF "(" """ STRING """ ")" ";"')
+    @_('PRINTF "(" STRING "," callParams ")" ";"')
     def instruction(self, p):
-        print(p[2])
+        self.NodePrint(p.STRING, p.callParams)
+
+    @_('PRINTF "(" STRING ")" ";" ')
+    def instruction(self, p):
+        self.NodePrint(p.STRING)
 
     # PLACEHOLDER
     # @_('PRINTF "(" STRING "," callParams ")" ";"')
@@ -247,10 +254,13 @@ class CParser(Parser):
     def typeDec(self, p):
         pass
 
-    @_('expr "," callParams',
-       'expr')
+    @_('expr "," callParams')
     def callParams(self, p):
-        pass
+        return [p.expr, p.callParams]
+
+    @_('expr')
+    def callParams(self, p):
+        return p.expr
 
     @_('ID "(" callParams ")"',
        'ID "(" ")"')

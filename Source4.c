@@ -1,7 +1,11 @@
 int a;
 
 //This instruction gives an error since a is not declared as a function
-int hola = a;
+int j = 2*a-3;
+
+printf("ey");
+
+printf("ey, el valor de a es %d y el de j es %d", a, j);
 
 //This gives an error since "a" is already a variable
 //int a(int, int, int);
@@ -28,7 +32,6 @@ int der(int f, int c, int y);
 int fun (int g, int d) {
     int z = a;
     x = c + empty() + fun(d, a); // Ok
-    printf("ey");
     x = c + empty() + fun(d+test(x,z-2), a) - der();
     //if no return instruction is set, the parser gives a syntax error
     return c - empty() + der();
