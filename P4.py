@@ -186,6 +186,8 @@ class CParser(Parser):
                     for val in values:
                         string = string.replace('%d', str(val), 1)
                     print(string)
+            else:
+                print(string)
             pass
 
         def execute(self):
