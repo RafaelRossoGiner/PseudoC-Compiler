@@ -11,6 +11,11 @@ printf("ey, el valor de a es %d y el de j es %d", a, j, j);
 
 //This gives an error since "a" is already a variable
 //int a(int, int, int);
+if (a == j){
+    int testOk = 1;
+}else{
+    int testOk = 0;
+}
 
 //Empty declaration
 void empty();

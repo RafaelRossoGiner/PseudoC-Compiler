@@ -45,6 +45,7 @@ class CLexer(Lexer):
 
     # Reserved keywords
     ID['int'] = INT
+    ID['else'] = ELSE
     ID['void'] = VOID
     ID['return'] = RETURN
     ID['printf'] = PRINTF
@@ -235,6 +236,12 @@ class CParser(Parser):
     def assignment(self, p):
         return p[0]
 
+    # Structure control
+    @_('IF "(" expr ")" "{" sentence "}"',
+       'IF "(" expr ")" "{" sentence "}" ELSE "{" sentence "}"')
+    def instruction(self, p):
+        pass
+
     # Built-in Functions
     @_('PRINTF "(" STRING "," callParams ")" ";"')
     def instruction(self, p):
@@ -243,11 +250,6 @@ class CParser(Parser):
     @_('PRINTF "(" STRING ")" ";" ')
     def instruction(self, p):
         self.NodePrint(p.lineno, p.STRING)
-
-    # PLACEHOLDER
-    # @_('PRINTF "(" STRING "," callParams ")" ";"')
-    # def instruction(self, p):
-    #     print(p[2])
 
     # User Functions
     @_('type ID',
