@@ -1,4 +1,4 @@
-int a;
+int a = 0;
 
 //This instruction gives an error since a is not declared as a function
 int j = 2*a-3;
@@ -9,9 +9,8 @@ printf("ey, el valor de a es %d y el de j es %d", a, j);
 printf("ey, el valor de a es %d y el de j es %d", a);
 printf("ey, el valor de a es %d y el de j es %d", a, j, j);
 
-//This gives an error since "a" is already a variable
-//int a(int, int, int);
-if (a == j){
+// ERROR <----------------------------------------------
+if (a == j) {
     int testOk = 1;
 }else{
     int testOk = 0;
@@ -40,6 +39,7 @@ int fun (int g, int d) {
     int z = a;
     x = c + empty() + fun(d, a); // Ok
     x = c + empty() + fun(d+test(x,z-2), a) - der();
+    printf("%d", &a);
     //if no return instruction is set, the parser gives a syntax error
     return c - empty() + der();
 }
@@ -52,5 +52,6 @@ void empty(){
     //void functions can be defined with no return instruction
 }
 
+// Esto no se debería poder hacer
 a = fun();
 int b = empty();

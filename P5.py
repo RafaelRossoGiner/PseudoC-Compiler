@@ -18,8 +18,8 @@ class bcolors:
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
-              INT, VOID, RETURN, PRINTF, STRING}
-    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ',', '"'}
+              INT, VOID, RETURN, PRINTF, STRING, ELSE, IF}
+    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
 
     # Tokens
 
@@ -170,9 +170,25 @@ class CParser(Parser):
                 result = self.n1 and self.n2
             return result
 
+    class NodeUnaryOp(Node):
+        def __init__(self, p1, op):
+            self.op = op
+
+            if op == '&':
+                if type(p1) is not str:
+                    raise RuntimeError('Can only get the address of a variable with its name.')
+                else:
+                    self.p1 = p1
+            else:
+                raise RuntimeError('Invalid operation specified!')
+
+        def execute(self):
+            if self.op == '&':
+                if self.p1 not in symbolValue:
+                    raise RuntimeError('Cannot access the memory address of an undeclared variable')
+
     class NodePrint(Node):
         def __init__(self, line, string, *values):
-            # to be implemented
             if values:
                 try:
                     values = list(values[0])
@@ -192,7 +208,13 @@ class CParser(Parser):
             pass
 
         def execute(self):
-            # to be implemented
+            pass
+
+    class NodeScan(Node):
+        def __init__(self, line, string, *values):
+            pass
+
+        def execute(self):
             pass
 
     # Program structure
@@ -397,6 +419,10 @@ class CParser(Parser):
 
     # Unary operators
 
+    @_('"&" ID')
+    def address(self, p):
+        return self.Node
+
     @_('"!" unary')
     def unary(self, p):
         return not p[1]
@@ -476,7 +502,7 @@ if __name__ == '__main__':
     lexer = CLexer()
     parser = CParser()
 
-    text = open("Source4.c").read()
+    text = open("Source5.c").read()
     tokenizedText = lexer.tokenize(text)
     print("\n =========[ Lexer ] ===========")
     for token in tokenizedText:
