@@ -50,7 +50,7 @@ a = z;
 //This does not give an error since it is a definition of a previous declaration
 void empty(){
     int useless = 0;
-    scanf("%d%d", &useless, &efgsf);
+    scanf("%d%d", &useless, &apetecan);
     //void functions can be defined with no return instruction
 }
 

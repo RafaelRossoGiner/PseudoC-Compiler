@@ -187,9 +187,6 @@ class CParser(Parser):
             else:
                 raise RuntimeError('Invalid operation')
 
-        def execute(self):
-            pass
-
     class NodePrint(Node):
         def __init__(self, line, string, *values):
             if values:
