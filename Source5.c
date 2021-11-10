@@ -39,16 +39,18 @@ int fun (int g, int d) {
     int z = a;
     x = c + empty() + fun(d, a); // Ok
     x = c + empty() + fun(d+test(x,z-2), a) - der();
-    printf("%d", &a);
+    printf("%d", a);
+    scanf("%d");
     //if no return instruction is set, the parser gives a syntax error
     return c - empty() + der();
-}
+} // Da error aqui cuando no debería
 
 a = z;
 
 //This does not give an error since it is a definition of a previous declaration
 void empty(){
     int useless = 0;
+    scanf("%d%d", &useless, &efgsf);
     //void functions can be defined with no return instruction
 }
 

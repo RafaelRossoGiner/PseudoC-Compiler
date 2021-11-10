@@ -18,7 +18,7 @@ class bcolors:
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
-              INT, VOID, RETURN, PRINTF, STRING, ELSE, IF}
+              INT, VOID, RETURN, PRINTF, SCANF, STRING, ELSE, IF}
     literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
 
     # Tokens
@@ -30,8 +30,9 @@ class CLexer(Lexer):
     LOGICAND = r'&&'
     LOGICOR = r'\|\|'
 
-    @_(r'".+"')
+    @_(r'".*"')
     def STRING(self, t):
+        # Remove quotation marks.
         t.value = t.value[1:-1]
         return t
 
@@ -49,6 +50,7 @@ class CLexer(Lexer):
     ID['void'] = VOID
     ID['return'] = RETURN
     ID['printf'] = PRINTF
+    ID['scanf'] = SCANF
 
     # Error and Indexing management
     @_(r'\n+')
@@ -90,15 +92,19 @@ class CParser(Parser):
             if idname not in symbolValue:
                 symbolValue[idname] = 0
             else:
-                super().PrintError("Símbolo ya declarado anteriormente", line)
+                super().PrintError("Symbol " + idname + " is already declared", line)
 
     class NodeId(Node):
-        def __init__(self, idname):
+        def __init__(self, idname, line):
             self.idname = idname
+            self.line = line
 
         def execute(self):
             global symbolValue
-            return symbolValue[self.idname]
+            if self.idname in symbolValue:
+                return symbolValue[self.idname]
+            else:
+                super().PrintError("Symbol " + self.idname + " is not declared", self.line)
 
     class NodeAssign(Node):
         def __init__(self, idname, value, line):
@@ -106,7 +112,7 @@ class CParser(Parser):
             if idname in symbolValue:
                 symbolValue[idname] = value
             else:
-                super().PrintError("Símbolo no declarado", line)
+                super().PrintError("Symbol " + idname + " is not declared", line)
 
     class NodeArithmBinOp(Node):
         def __init__(self, p1, p2, op):
@@ -170,22 +176,19 @@ class CParser(Parser):
                 result = self.n1 and self.n2
             return result
 
+    # Unary goes here! <----
     class NodeUnaryOp(Node):
         def __init__(self, p1, op):
             self.op = op
+            self.p1 = p1
 
             if op == '&':
-                if type(p1) is not str:
-                    raise RuntimeError('Can only get the address of a variable with its name.')
-                else:
-                    self.p1 = p1
+                pass
             else:
-                raise RuntimeError('Invalid operation specified!')
+                raise RuntimeError('Invalid operation')
 
         def execute(self):
-            if self.op == '&':
-                if self.p1 not in symbolValue:
-                    raise RuntimeError('Cannot access the memory address of an undeclared variable')
+            pass
 
     class NodePrint(Node):
         def __init__(self, line, string, *values):
@@ -197,14 +200,18 @@ class CParser(Parser):
 
                 values = values[::-1]
 
+                # Check number of specifiers and number of values
                 if len(values) != string.count('%d'):
-                    super().PrintError("El número de especificadores no equivale a los parametros de la funcion", line)
+                    super().PrintError('Number of parameters is different from the number of specifiers', line)
                 else:
                     for val in values:
                         string = string.replace('%d', str(val), 1)
                     print(string)
             else:
-                print(string)
+                if string.count('%d') > 0:
+                    super().PrintError('Number of parameters is different from the number of specifiers', line)
+                else:
+                    print(string)
             pass
 
         def execute(self):
@@ -212,6 +219,20 @@ class CParser(Parser):
 
     class NodeScan(Node):
         def __init__(self, line, string, *values):
+            if values:
+                try:
+                    values = list(values[0])
+                except TypeError as te:
+                    values = list(values)
+
+                values = values[::-1]
+
+                # Check number of specifiers and number of values
+                if len(values) != string.count('%d'):
+                    super().PrintError("Number of parameters is different from the number of specifiers", line)
+            else:
+                if string.count('%d') > 0:
+                    super().PrintError("Number of parameters is different from the number of specifiers", line)
             pass
 
         def execute(self):
@@ -273,6 +294,10 @@ class CParser(Parser):
     def instruction(self, p):
         self.NodePrint(p.lineno, p.STRING)
 
+    @_('SCANF "(" STRING "," scanfParams ")" ";"')
+    def instruction(self, p):
+        self.NodeScan(p.lineno, p.STRING, p.scanfParams)
+
     # User Functions
     @_('type ID',
        'VOID ID')
@@ -298,6 +323,15 @@ class CParser(Parser):
     @_('expr')
     def callParams(self, p):
         return [p.expr]
+
+    @_('address "," scanfParams')
+    def scanfParams(self, p):
+        p.scanfParams.append(p.address)
+        return p.scanfParams
+
+    @_('address')
+    def scanfParams(self, p):
+        return [p.address]
 
     @_('ID "(" callParams ")"',
        'ID "(" ")"')
@@ -421,7 +455,7 @@ class CParser(Parser):
 
     @_('"&" ID')
     def address(self, p):
-        return self.Node
+        self.NodeId(p[1], p.lineno).execute()
 
     @_('"!" unary')
     def unary(self, p):
@@ -449,7 +483,7 @@ class CParser(Parser):
 
     @_('ID')
     def num(self, p):
-        node = self.NodeId(p[0])
+        node = self.NodeId(p[0], p.lineno)
         return node.execute()
 
     @_('num')
