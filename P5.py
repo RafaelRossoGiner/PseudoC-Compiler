@@ -18,7 +18,7 @@ class bcolors:
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
-              INT, VOID, RETURN, PRINTF, SCANF, STRING, ELSE, IF}
+              INT, VOID, IF, ELSE, RETURN, PRINTF, SCANF, STRING}
     literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
 
     # Tokens
@@ -46,6 +46,7 @@ class CLexer(Lexer):
 
     # Reserved keywords
     ID['int'] = INT
+    ID['if'] = IF
     ID['else'] = ELSE
     ID['void'] = VOID
     ID['return'] = RETURN
