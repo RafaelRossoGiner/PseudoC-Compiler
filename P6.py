@@ -77,10 +77,9 @@ class CParser(Parser):
 
     # AST Nodes
     class Node:
+        def __init__(self):
+            self.outputFile = "Output6.x86"
         def execute(self):
-            pass
-
-        def show(self):
             pass
 
         def PrintError(self, msg, line):
@@ -534,7 +533,7 @@ if __name__ == '__main__':
     lexer = CLexer()
     parser = CParser()
 
-    text = open("Source5.c").read()
+    text = open("Source6.c").read()
     tokenizedText = lexer.tokenize(text)
     print("\n =========[ Lexer ] ===========")
     for token in tokenizedText:
