@@ -176,7 +176,6 @@ class CParser(Parser):
                 result = self.n1 and self.n2
             return result
 
-    # Unary goes here! <----
     class NodeUnaryOp(Node):
         def __init__(self, p1, op):
             self.op = op

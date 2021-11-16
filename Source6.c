@@ -9,7 +9,6 @@ printf("ey, el valor de a es %d y el de j es %d", a, j);
 printf("ey, el valor de a es %d y el de j es %d", a);
 printf("ey, el valor de a es %d y el de j es %d", a, j, j);
 
-// ERROR <----------------------------------------------
 if (a == j) {
     int testOk = 1;
 }else{
