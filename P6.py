@@ -394,7 +394,7 @@ class CParser(Parser):
     # Logical operators
     @_('logicalOR LOGICOR logicalAND')
     def logicalOR(self, p):
-        node = self.NodeLogicalBinOp(p[0], p[2], '||')
+        node = NodeLogicalBinOp(p[0], p[2], '||')
         return node.execute()
 
     @_('logicalAND LOGICAND comparison')
