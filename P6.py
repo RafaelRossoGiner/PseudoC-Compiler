@@ -14,6 +14,8 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+
 #
 
 class CLexer(Lexer):
@@ -64,6 +66,176 @@ class CLexer(Lexer):
         self.index += 1
 
 
+# AST Nodes
+class Node:
+    def __init__(self):
+        self.outputFile = "Output6.x86"
+
+    def execute(self):
+        pass
+
+    def PrintError(self, msg, line):
+        print(bcolors.BOLD, bcolors.OKGREEN, "Linea:", line, "->", msg)
+        return
+
+
+class NodeDeclaration(Node):
+    def __init__(self, idname, line):
+        global symbolValue
+        if idname not in symbolValue:
+            symbolValue[idname] = 0
+        else:
+            super().PrintError("Symbol " + idname + " is already declared", line)
+
+
+class NodeId(Node):
+    def __init__(self, idname, line):
+        self.idname = idname
+        self.line = line
+
+    def execute(self):
+        global symbolValue
+        if self.idname in symbolValue:
+            return symbolValue[self.idname]
+        else:
+            super().PrintError("Symbol " + self.idname + " is not declared", self.line)
+
+
+class NodeAssign(Node):
+    def __init__(self, idname, value, line):
+        global symbolValue
+        if idname in symbolValue:
+            symbolValue[idname] = value
+        else:
+            super().PrintError("Symbol " + idname + " is not declared", line)
+
+
+class NodeArithmBinOp(Node):
+    def __init__(self, p1, p2, op):
+        self.n1 = p1
+        self.n2 = p2
+        self.operator = op
+
+    def execute(self):
+        op = self.operator
+        if op == '+':
+            result = self.n1 + self.n2
+        elif op == '-':
+            result = self.n1 - self.n2
+        elif op == '*':
+            result = self.n1 * self.n2
+        elif op == '/':
+            result = self.n1 / self.n2
+        elif op == '%':
+            result = self.n1 % self.n2
+        return result
+
+
+class NodeRelationalBinOp(Node):
+    def __init__(self, p1, p2, op):
+        self.n1 = p1
+        self.n2 = p2
+        self.operator = op
+
+    def execute(self):
+        op = self.operator
+        if op == '>':
+            result = self.n1 > self.n2
+        elif op == '>=':
+            result = self.n1 >= self.n2
+        elif op == '<':
+            result = self.n1 < self.n2
+        elif op == '<=':
+            result = self.n1 <= self.n2
+        elif op == '==':
+            result = self.n1 == self.n2
+        elif op == '!=':
+            result = self.n1 != self.n2
+        return result
+
+
+class NodeLogicalBinOp(Node):
+    def __init__(self, p1, p2, op):
+        self.operator = op
+
+        if type(p1) is not bool:
+            p1 = False if p1 == 0 else True
+        if type(p2) is not bool:
+            p2 = False if p2 == 0 else True
+
+        self.n1 = p1
+        self.n2 = p2
+
+    def execute(self):
+        op = self.operator
+        if op == '||':
+            result = self.n1 or self.n2
+        elif op == '&&':
+            result = self.n1 and self.n2
+        return result
+
+
+class NodeUnaryOp(Node):
+    def __init__(self, p1, op):
+        self.op = op
+        self.p1 = p1
+
+        if op == '&':
+            pass
+        else:
+            raise RuntimeError('Invalid operation')
+
+
+class NodePrint(Node):
+    def __init__(self, line, string, *values):
+        if values:
+            try:
+                values = list(values[0])
+            except TypeError as te:
+                values = list(values)
+
+            values = values[::-1]
+
+            # Check number of specifiers and number of values
+            if len(values) != string.count('%d'):
+                super().PrintError('Number of parameters is different from the number of specifiers', line)
+            else:
+                for val in values:
+                    string = string.replace('%d', str(val), 1)
+                print(string)
+        else:
+            if string.count('%d') > 0:
+                super().PrintError('Number of parameters is different from the number of specifiers', line)
+            else:
+                print(string)
+        pass
+
+    def execute(self):
+        pass
+
+
+class NodeScan(Node):
+    def __init__(self, line, string, *values):
+        if values:
+            try:
+                values = list(values[0])
+            except TypeError as te:
+                values = list(values)
+
+            values = values[::-1]
+
+            # Check number of specifiers and number of values
+            if len(values) != string.count('%d'):
+                super().PrintError("Number of parameters is different from the number of specifiers", line)
+        else:
+            if string.count('%d') > 0:
+                super().PrintError("Number of parameters is different from the number of specifiers", line)
+        pass
+
+    def execute(self):
+        pass
+
+
 class CParser(Parser):
     global symbolValue
     symbolValue = {}
@@ -72,167 +244,6 @@ class CParser(Parser):
 
     functions = {}
     parser = 0
-
-    # Print Error Function
-
-    # AST Nodes
-    class Node:
-        def __init__(self):
-            self.outputFile = "Output6.x86"
-        def execute(self):
-            pass
-
-        def PrintError(self, msg, line):
-            print(bcolors.BOLD, bcolors.OKGREEN, "Linea:", line, "->", msg)
-            return
-
-    class NodeDeclaration(Node):
-        def __init__(self, idname, line):
-            global symbolValue
-            if idname not in symbolValue:
-                symbolValue[idname] = 0
-            else:
-                super().PrintError("Symbol " + idname + " is already declared", line)
-
-    class NodeId(Node):
-        def __init__(self, idname, line):
-            self.idname = idname
-            self.line = line
-
-        def execute(self):
-            global symbolValue
-            if self.idname in symbolValue:
-                return symbolValue[self.idname]
-            else:
-                super().PrintError("Symbol " + self.idname + " is not declared", self.line)
-
-    class NodeAssign(Node):
-        def __init__(self, idname, value, line):
-            global symbolValue
-            if idname in symbolValue:
-                symbolValue[idname] = value
-            else:
-                super().PrintError("Symbol " + idname + " is not declared", line)
-
-    class NodeArithmBinOp(Node):
-        def __init__(self, p1, p2, op):
-            self.n1 = p1
-            self.n2 = p2
-            self.operator = op
-
-        def execute(self):
-            op = self.operator
-            if op == '+':
-                result = self.n1 + self.n2
-            elif op == '-':
-                result = self.n1 - self.n2
-            elif op == '*':
-                result = self.n1 * self.n2
-            elif op == '/':
-                result = self.n1 / self.n2
-            elif op == '%':
-                result = self.n1 % self.n2
-            return result
-
-    class NodeRelationalBinOp(Node):
-        def __init__(self, p1, p2, op):
-            self.n1 = p1
-            self.n2 = p2
-            self.operator = op
-
-        def execute(self):
-            op = self.operator
-            if op == '>':
-                result = self.n1 > self.n2
-            elif op == '>=':
-                result = self.n1 >= self.n2
-            elif op == '<':
-                result = self.n1 < self.n2
-            elif op == '<=':
-                result = self.n1 <= self.n2
-            elif op == '==':
-                result = self.n1 == self.n2
-            elif op == '!=':
-                result = self.n1 != self.n2
-            return result
-
-    class NodeLogicalBinOp(Node):
-        def __init__(self, p1, p2, op):
-            self.operator = op
-
-            if type(p1) is not bool:
-                p1 = False if p1 == 0 else True
-            if type(p2) is not bool:
-                p2 = False if p2 == 0 else True
-
-            self.n1 = p1
-            self.n2 = p2
-
-        def execute(self):
-            op = self.operator
-            if op == '||':
-                result = self.n1 or self.n2
-            elif op == '&&':
-                result = self.n1 and self.n2
-            return result
-
-    class NodeUnaryOp(Node):
-        def __init__(self, p1, op):
-            self.op = op
-            self.p1 = p1
-
-            if op == '&':
-                pass
-            else:
-                raise RuntimeError('Invalid operation')
-
-    class NodePrint(Node):
-        def __init__(self, line, string, *values):
-            if values:
-                try:
-                    values = list(values[0])
-                except TypeError as te:
-                    values = list(values)
-
-                values = values[::-1]
-
-                # Check number of specifiers and number of values
-                if len(values) != string.count('%d'):
-                    super().PrintError('Number of parameters is different from the number of specifiers', line)
-                else:
-                    for val in values:
-                        string = string.replace('%d', str(val), 1)
-                    print(string)
-            else:
-                if string.count('%d') > 0:
-                    super().PrintError('Number of parameters is different from the number of specifiers', line)
-                else:
-                    print(string)
-            pass
-
-        def execute(self):
-            pass
-
-    class NodeScan(Node):
-        def __init__(self, line, string, *values):
-            if values:
-                try:
-                    values = list(values[0])
-                except TypeError as te:
-                    values = list(values)
-
-                values = values[::-1]
-
-                # Check number of specifiers and number of values
-                if len(values) != string.count('%d'):
-                    super().PrintError("Number of parameters is different from the number of specifiers", line)
-            else:
-                if string.count('%d') > 0:
-                    super().PrintError("Number of parameters is different from the number of specifiers", line)
-            pass
-
-        def execute(self):
-            pass
 
     # Program structure
     @_('instruction sentence')
@@ -255,12 +266,12 @@ class CParser(Parser):
 
     @_('ID "=" assignment')
     def declaration(self, p):
-        self.NodeDeclaration(p[0], p.lineno)
-        self.NodeAssign(p[0], p[2], p.lineno)
+        NodeDeclaration(p[0], p.lineno)
+        NodeAssign(p[0], p[2], p.lineno)
 
     @_('ID')
     def declaration(self, p):
-        self.NodeDeclaration(p[0], p.lineno)
+        NodeDeclaration(p[0], p.lineno)
 
     @_('declaration "," anotherDeclaration',
        'declaration ";"')
@@ -269,7 +280,7 @@ class CParser(Parser):
 
     @_('ID "=" assignment')
     def assignment(self, p):
-        self.NodeAssign(p[0], p[2], p.lineno)
+        NodeAssign(p[0], p[2], p.lineno)
 
     @_('expr')
     def assignment(self, p):
@@ -284,21 +295,21 @@ class CParser(Parser):
     # Built-in Functions
     @_('PRINTF "(" STRING "," callParams ")" ";"')
     def instruction(self, p):
-        self.NodePrint(p.lineno, p.STRING, p.callParams)
+        NodePrint(p.lineno, p.STRING, p.callParams)
 
     @_('PRINTF "(" STRING ")" ";" ')
     def instruction(self, p):
-        self.NodePrint(p.lineno, p.STRING)
+        NodePrint(p.lineno, p.STRING)
 
     @_('SCANF "(" STRING "," scanfParams ")" ";"')
     def instruction(self, p):
-        self.NodeScan(p.lineno, p.STRING, p.scanfParams)
+        NodeScan(p.lineno, p.STRING, p.scanfParams)
 
     # User Functions
     @_('type ID',
        'VOID ID')
     def param(self, p):
-        self.NodeDeclaration(p[1], p.lineno)
+        NodeDeclaration(p[1], p.lineno)
         return p[1]
 
     @_('param "," params',
@@ -388,70 +399,70 @@ class CParser(Parser):
 
     @_('logicalAND LOGICAND comparison')
     def logicalAND(self, p):
-        node = self.NodeLogicalBinOp(p[0], p[2], '&&')
+        node = NodeLogicalBinOp(p[0], p[2], '&&')
         return node.execute()
 
     @_('comparison EQUAL relation')
     def comparison(self, p):
-        node = self.NodeRelationalBinOp(p[0], p[2], '==')
+        node = NodeRelationalBinOp(p[0], p[2], '==')
         return node.execute()
 
     @_('comparison NOTEQUAL relation')
     def comparison(self, p):
-        node = self.NodeRelationalBinOp(p[0], p[2], '!=')
+        node = NodeRelationalBinOp(p[0], p[2], '!=')
         return node.execute()
 
     @_('relation "<" arithExpr')
     def relation(self, p):
-        node = self.NodeRelationalBinOp(p[0], p[2], '<')
+        node = NodeRelationalBinOp(p[0], p[2], '<')
         return node.execute()
 
     @_('relation LESSTHANEQUAL arithExpr')
     def relation(self, p):
-        node = self.NodeRelationalBinOp(p[0], p[2], '<=')
+        node = NodeRelationalBinOp(p[0], p[2], '<=')
         return node.execute()
 
     @_('relation ">" arithExpr')
     def relation(self, p):
-        node = self.NodeRelationalBinOp(p[0], p[2], '>')
+        node = NodeRelationalBinOp(p[0], p[2], '>')
         return node.execute()
 
     @_('relation GREATERTHANEQUAL arithExpr')
     def relation(self, p):
-        node = self.NodeRelationalBinOp(p[0], p[2], '>=')
+        node = NodeRelationalBinOp(p[0], p[2], '>=')
         return node.execute()
 
     # Arithmetic operators
     @_('arithExpr "+" term')
     def arithExpr(self, p):
-        node = self.NodeArithmBinOp(p[0], p[2], '+')
+        node = NodeArithmBinOp(p[0], p[2], '+')
         return node.execute()
 
     @_('arithExpr "-" term')
     def arithExpr(self, p):
-        node = self.NodeArithmBinOp(p[0], p[2], '-')
+        node = NodeArithmBinOp(p[0], p[2], '-')
         return node.execute()
 
     @_('term "*" fact')
     def term(self, p):
-        node = self.NodeArithmBinOp(p[0], p[2], '*')
+        node = NodeArithmBinOp(p[0], p[2], '*')
         return node.execute()
 
     @_('term "/" fact')
     def term(self, p):
-        node = self.NodeArithmBinOp(p[0], p[2], '/')
+        node = NodeArithmBinOp(p[0], p[2], '/')
         return node.execute()
 
     @_('term "%" fact')
     def term(self, p):
-        node = self.NodeArithmBinOp(p[0], p[2], '%')
+        node = NodeArithmBinOp(p[0], p[2], '%')
         return node.execute()
 
     # Unary operators
 
     @_('"&" ID')
     def address(self, p):
-        self.NodeId(p[1], p.lineno).execute()
+        NodeId(p[1], p.lineno).execute()
 
     @_('"!" unary')
     def unary(self, p):
@@ -464,7 +475,7 @@ class CParser(Parser):
     # Parenthesis
     @_('"(" expr ")"')
     def num(self, p):
-        return self.NodeNum
+        return NodeNum
 
     # Conversion hierarchy
     # PlaceHolder type function for scalability with more types
@@ -479,7 +490,7 @@ class CParser(Parser):
 
     @_('ID')
     def num(self, p):
-        node = self.NodeId(p[0], p.lineno)
+        node = NodeId(p[0], p.lineno)
         return node.execute()
 
     @_('num')
