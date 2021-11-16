@@ -1,7 +1,9 @@
 from sly import Lexer
 from sly import Parser
 
-global symbolValue
+global symbolEBPoffset
+global offsetEBP
+
 
 
 class bcolors:
@@ -14,9 +16,6 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
-
-
-#
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
@@ -81,31 +80,35 @@ class Node:
 
 class NodeDeclaration(Node):
     def __init__(self, idname, line):
-        global symbolValue
-        if idname not in symbolValue:
-            symbolValue[idname] = 0
+        global symbolEBPoffset, offsetEBP
+        if idname not in symbolEBPoffset:
+            symbolEBPoffset[idname] = offsetEBP
+            offsetEBP = offsetEBP - 4
         else:
             super().PrintError("Symbol " + idname + " is already declared", line)
 
 
 class NodeId(Node):
+    global symbolEBPoffset
     def __init__(self, idname, line):
-        self.idname = idname
-        self.line = line
+        self.offset = symbolEBPoffset[idname]
+        global symbolEBPoffset
+        if idname not in symbolEBPoffset:
+            super().PrintError("Symbol " + idname + " is not declared", line)
 
-    def execute(self):
-        global symbolValue
-        if self.idname in symbolValue:
-            return symbolValue[self.idname]
-        else:
-            super().PrintError("Symbol " + self.idname + " is not declared", self.line)
-
+class NodeNum(Node):
+    def __init__(self, number, line):
+        self.number = number
+        try:
+            int(float(number.replace('f', '')))
+        except ValueError:
+            super().PrintError("Error parsing number value!", line)
 
 class NodeAssign(Node):
     def __init__(self, idname, value, line):
-        global symbolValue
-        if idname in symbolValue:
-            symbolValue[idname] = value
+        global symbolEBPoffset
+        if idname in symbolEBPoffset:
+            symbolEBPoffset[idname] = value
         else:
             super().PrintError("Symbol " + idname + " is not declared", line)
 
@@ -237,8 +240,6 @@ class NodeScan(Node):
 
 
 class CParser(Parser):
-    global symbolValue
-    symbolValue = {}
     tokens = CLexer.tokens
     start = 'sentence'
 
@@ -371,7 +372,7 @@ class CParser(Parser):
         if p[0] in self.functions:
             raise RuntimeError('line ' + str(p.lineno) + ': Redeclaration of function ' + p[0] + ' is not allowed')
         else:
-            if p[0] in symbolValue:
+            if p[0] in symbolEBPoffset:
                 raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is already declared as a variable')
             else:
                 self.functions[p[0]] = 0
@@ -459,7 +460,6 @@ class CParser(Parser):
         return node.execute()
 
     # Unary operators
-
     @_('"&" ID')
     def address(self, p):
         NodeId(p[1], p.lineno).execute()
@@ -475,7 +475,7 @@ class CParser(Parser):
     # Parenthesis
     @_('"(" expr ")"')
     def num(self, p):
-        return NodeNum
+        return p[1]
 
     # Conversion hierarchy
     # PlaceHolder type function for scalability with more types
@@ -486,12 +486,11 @@ class CParser(Parser):
     @_('INTVALUE',
        'FLOATVALUE')
     def num(self, p):
-        return int(float(p[0].replace('f', '')))
+        return NodeNum(p[0], p.lineno)
 
     @_('ID')
     def num(self, p):
-        node = NodeId(p[0], p.lineno)
-        return node.execute()
+        return NodeId(p[0], p.lineno)
 
     @_('num')
     def unary(self, p):
@@ -540,6 +539,7 @@ class CParser(Parser):
 
 
 if __name__ == '__main__':
+    symbolEBPoffset = {}
     lexer = CLexer()
     parser = CParser()
 
