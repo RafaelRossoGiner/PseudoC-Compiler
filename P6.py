@@ -80,7 +80,7 @@ class NodeDeclaration(Node):
     def __init__(self, idname, line):
         global symbolEBPoffset, offsetEBP
         if idname not in symbolEBPoffset:
-            symbolEBPoffset[idname] = offsetEBP
+            symbolEBPoffset[idname] = str(offsetEBP)
             offsetEBP = offsetEBP - 4
         else:
             super().PrintError("Symbol " + idname + " is already declared", line)
@@ -94,6 +94,7 @@ class NodeId(Node):
         if idname not in symbolEBPoffset:
             super().PrintError("Symbol " + idname + " is not declared", line)
 
+
 class NodeNum(Node):
     def __init__(self, number, line):
         self.number = number
@@ -101,6 +102,7 @@ class NodeNum(Node):
             int(float(number.replace('f', '')))
         except ValueError:
             super().PrintError("Error parsing number value!", line)
+
 
 class NodeAssign(Node):
     def __init__(self, idname, value, line):
@@ -238,8 +240,6 @@ class NodeScan(Node):
 
 
 class CParser(Parser):
-    global symbolValue
-    symbolValue = {}
     tokens = CLexer.tokens
     start = 'sentence'
 
@@ -463,7 +463,7 @@ class CParser(Parser):
 
     @_('"&" ID')
     def address(self, p):
-        NodeId(p[1], p.lineno).execute()
+        NodeId(p[1], p.lineno)
 
     @_('"!" unary')
     def unary(self, p):
