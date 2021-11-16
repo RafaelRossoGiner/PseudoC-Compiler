@@ -1,9 +1,7 @@
 from sly import Lexer
 from sly import Parser
 
-global symbolEBPoffset
-global offsetEBP
-
+global symbolValue
 
 
 class bcolors:
@@ -16,6 +14,9 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+
+#
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
@@ -67,13 +68,10 @@ class CLexer(Lexer):
 
 # AST Nodes
 class Node:
-    def __init__(self):
-        self.outputFile = "Output6.x86"
+    outputFilename = ""
 
-    def execute(self):
-        pass
-
-    def PrintError(self, msg, line):
+    @staticmethod
+    def PrintError(msg, line):
         print(bcolors.BOLD, bcolors.OKGREEN, "Linea:", line, "->", msg)
         return
 
@@ -240,6 +238,8 @@ class NodeScan(Node):
 
 
 class CParser(Parser):
+    global symbolValue
+    symbolValue = {}
     tokens = CLexer.tokens
     start = 'sentence'
 
@@ -460,6 +460,7 @@ class CParser(Parser):
         return node.execute()
 
     # Unary operators
+
     @_('"&" ID')
     def address(self, p):
         NodeId(p[1], p.lineno).execute()
@@ -542,6 +543,7 @@ if __name__ == '__main__':
     symbolEBPoffset = {}
     lexer = CLexer()
     parser = CParser()
+    Node.outputFilename = "Output6.x86"
 
     text = open("Source6.c").read()
     tokenizedText = lexer.tokenize(text)
