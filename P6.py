@@ -1,7 +1,7 @@
 from sly import Lexer
 from sly import Parser
 
-global symbolValue
+global symbolEBPoffset, offsetEBP
 
 
 class bcolors:
@@ -15,8 +15,6 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-
-#
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
@@ -80,56 +78,77 @@ class NodeDeclaration(Node):
     def __init__(self, idname, line):
         global symbolEBPoffset, offsetEBP
         if idname not in symbolEBPoffset:
-            symbolEBPoffset[idname] = offsetEBP
+            symbolEBPoffset[idname] = str(offsetEBP)
             offsetEBP = offsetEBP - 4
         else:
             super().PrintError("Symbol " + idname + " is already declared", line)
 
 
 class NodeId(Node):
-    global symbolEBPoffset
     def __init__(self, idname, line):
-        self.offset = symbolEBPoffset[idname]
         global symbolEBPoffset
+        self.offset = symbolEBPoffset[idname]
         if idname not in symbolEBPoffset:
             super().PrintError("Symbol " + idname + " is not declared", line)
 
+
 class NodeNum(Node):
     def __init__(self, number, line):
-        self.number = number
+        self.number = str(number)
         try:
             int(float(number.replace('f', '')))
         except ValueError:
             super().PrintError("Error parsing number value!", line)
 
+
 class NodeAssign(Node):
     def __init__(self, idname, value, line):
         global symbolEBPoffset
         if idname in symbolEBPoffset:
-            symbolEBPoffset[idname] = value
+            pass
+            # symbolEBPoffset[idname] = value
         else:
             super().PrintError("Symbol " + idname + " is not declared", line)
 
 
 class NodeArithmBinOp(Node):
     def __init__(self, p1, p2, op):
-        self.n1 = p1
-        self.n2 = p2
-        self.operator = op
+        with open(super().outputFilename, 'a') as output:
+            # Operand 2
+            if isinstance(p2, NodeId):
+                output.write("movl " + p2.offset + "(%ebp)" + ", %ebx\n")
+                p2str = "%ebx"
+            elif isinstance(p2, NodeNum):
+                p2str = "$" + p2.number
+            else:
+                output.write("popl " + "%ebx\n")
+                p2str = "%ebx"
 
-    def execute(self):
-        op = self.operator
-        if op == '+':
-            result = self.n1 + self.n2
-        elif op == '-':
-            result = self.n1 - self.n2
-        elif op == '*':
-            result = self.n1 * self.n2
-        elif op == '/':
-            result = self.n1 / self.n2
-        elif op == '%':
-            result = self.n1 % self.n2
-        return result
+            # Operand 1
+            if isinstance(p1, NodeId):
+                output.write("movl " + p1.offset + "(%ebp)" + ", %eax\n")
+            elif isinstance(p1, NodeNum):
+                output.write("movl $" + p1.number + ", %eax\n")
+            else:
+                output.write("popl " + "%eax\n")
+
+            # Operation
+            if op == '+':
+                output.write("addl " + p2str + "\n")
+                output.write("pushl %eax\n")
+            elif op == '-':
+                output.write("subl " + p2str + "\n")
+                output.write("pushl %eax\n")
+            elif op == '*':
+                output.write("imul " + p2str + "\n")
+                output.write("pushl %eax\n")
+            elif op == '/':
+                output.write("idivl " + p2str + "\n")
+                output.write("pushl %eax\n")
+            elif op == '%':
+                output.write("idivl " + p2str + "\n")
+                output.write("pushl %ebx\n")
+
 
 
 class NodeRelationalBinOp(Node):
@@ -436,28 +455,24 @@ class CParser(Parser):
     # Arithmetic operators
     @_('arithExpr "+" term')
     def arithExpr(self, p):
-        node = NodeArithmBinOp(p[0], p[2], '+')
-        return node.execute()
+        return NodeArithmBinOp(p[0], p[2], '+')
 
     @_('arithExpr "-" term')
     def arithExpr(self, p):
-        node = NodeArithmBinOp(p[0], p[2], '-')
-        return node.execute()
+        pass
+        return NodeArithmBinOp(p[0], p[2], '-')
 
     @_('term "*" fact')
     def term(self, p):
-        node = NodeArithmBinOp(p[0], p[2], '*')
-        return node.execute()
+        return NodeArithmBinOp(p[0], p[2], '*')
 
     @_('term "/" fact')
     def term(self, p):
-        node = NodeArithmBinOp(p[0], p[2], '/')
-        return node.execute()
+        return NodeArithmBinOp(p[0], p[2], '/')
 
     @_('term "%" fact')
     def term(self, p):
-        node = NodeArithmBinOp(p[0], p[2], '%')
-        return node.execute()
+        return NodeArithmBinOp(p[0], p[2], '%')
 
     # Unary operators
 
@@ -541,9 +556,11 @@ class CParser(Parser):
 
 if __name__ == '__main__':
     symbolEBPoffset = {}
+    offsetEBP = -4
     lexer = CLexer()
     parser = CParser()
     Node.outputFilename = "Output6.x86"
+    open(Node.outputFilename, 'w').close()
 
     text = open("Source6.c").read()
     tokenizedText = lexer.tokenize(text)
