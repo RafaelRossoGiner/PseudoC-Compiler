@@ -19,7 +19,7 @@ class bcolors:
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
               INT, VOID, IF, ELSE, RETURN, PRINTF, SCANF, STRING}
-    literals = {'=', '+', '-', '/', '*', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
+    literals = {'=', '+', '-', '/', '*', '%', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
 
     # Tokens
 
@@ -143,12 +143,13 @@ class NodeArithmBinOp(Node):
                 output.write("imul " + p2str + "\n")
                 output.write("pushl %eax\n")
             elif op == '/':
+                output.write("cdq\n")
                 output.write("idivl " + p2str + "\n")
                 output.write("pushl %eax\n")
             elif op == '%':
+                output.write("cdq\n")
                 output.write("idivl " + p2str + "\n")
                 output.write("pushl %ebx\n")
-
 
 
 class NodeRelationalBinOp(Node):
@@ -200,10 +201,22 @@ class NodeUnaryOp(Node):
         self.op = op
         self.p1 = p1
 
-        if op == '&':
-            pass
-        else:
-            raise RuntimeError('Invalid operation')
+        with open(super().outputFilename, 'a') as output:
+            if op == '&':
+                pass
+            elif op == '-':
+                # Operand
+                if isinstance(p1, NodeId):
+                    output.write("movl " + p1.offset + "(%ebp)" + ", %eax\n")
+                elif isinstance(p1, NodeNum):
+                    output.write("movl $" + p1.number + ", %eax\n")
+                else:
+                    output.write("popl " + "%eax\n")
+
+                output.write("imul $-1\n")
+                output.write("pushl %eax\n")
+            else:
+                raise RuntimeError('Invalid operation')
 
 
 class NodePrint(Node):
@@ -484,7 +497,7 @@ class CParser(Parser):
 
     @_('"-" unary')
     def num(self, p):
-        return - p[1]
+        return NodeUnaryOp(p[1], '-')
 
     # Parenthesis
     @_('"(" expr ")"')
