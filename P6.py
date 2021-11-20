@@ -257,8 +257,6 @@ class NodeScan(Node):
 
 
 class CParser(Parser):
-    global symbolValue
-    symbolValue = {}
     tokens = CLexer.tokens
     start = 'sentence'
 
@@ -478,7 +476,7 @@ class CParser(Parser):
 
     @_('"&" ID')
     def address(self, p):
-        NodeId(p[1], p.lineno).execute()
+        NodeId(p[1], p.lineno)
 
     @_('"!" unary')
     def unary(self, p):
