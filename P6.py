@@ -500,6 +500,7 @@ class CParser(Parser):
         return NodeUnaryOp(p[1], '-')
 
     # Parenthesis
+
     @_('"(" expr ")"')
     def num(self, p):
         return p[1]
