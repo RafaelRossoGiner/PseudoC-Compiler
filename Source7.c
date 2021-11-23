@@ -1,8 +1,18 @@
-int a;
+// Hola, comentario
+int a = 0;
+int nota = 10;
 
-int b = 5;
-
-int c = 3, d, e=7;
-
-a = 3+e/(2-c);
-b = 23%-2;
+while ( 0 ) {
+    int b;
+    b = b % -2;
+    while ( a ) {
+        if (nota){
+            printf("ESTO SE APRUEBA");
+        }else{
+            printf("ESTO NO SE APRUEBA");
+            while ( b%-a ) {
+                printf("hey");
+            }
+        }
+    }
+}

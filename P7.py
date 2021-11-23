@@ -18,7 +18,7 @@ class bcolors:
 
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
-              INT, VOID, IF, ELSE, RETURN, PRINTF, SCANF, STRING}
+              INT, VOID, IF, ELSE, WHILE, RETURN, PRINTF, SCANF, STRING}
     literals = {'=', '+', '-', '/', '*', '%', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
 
     # Tokens
@@ -48,6 +48,7 @@ class CLexer(Lexer):
     ID['int'] = INT
     ID['if'] = IF
     ID['else'] = ELSE
+    ID['while'] = WHILE
     ID['void'] = VOID
     ID['return'] = RETURN
     ID['printf'] = PRINTF
@@ -320,6 +321,10 @@ class CParser(Parser):
     # Structure control
     @_('IF "(" expr ")" "{" sentence "}"',
        'IF "(" expr ")" "{" sentence "}" ELSE "{" sentence "}"')
+    def instruction(self, p):
+        pass
+
+    @_('WHILE "(" expr ")" "{" sentence "}"')
     def instruction(self, p):
         pass
 
