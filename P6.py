@@ -486,7 +486,6 @@ class CParser(Parser):
         return NodeArithmBinOp(p[0], p[2], '%')
 
     # Unary operators
-
     @_('"&" ID')
     def address(self, p):
         NodeId(p[1], p.lineno)

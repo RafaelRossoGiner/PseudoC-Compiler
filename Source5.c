@@ -43,7 +43,7 @@ int fun (int g, int d) {
     scanf("%d");
     //if no return instruction is set, the parser gives a syntax error
     return c - empty() + der();
-} // Da error aqui cuando no debería
+}
 
 a = z;
 
