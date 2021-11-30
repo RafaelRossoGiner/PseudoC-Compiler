@@ -1,7 +1,7 @@
 from sly import Lexer
 from sly import Parser
 
-global symbolValue
+global symbolEBPoffset
 
 
 class bcolors:
@@ -61,7 +61,7 @@ class CLexer(Lexer):
 
 
 class CParser(Parser):
-    global symbolValue
+    global symbolEBPoffset
     symbolValue = {}
     tokens = CLexer.tokens
     start = 'sentence'
@@ -85,7 +85,7 @@ class CParser(Parser):
 
     class NodeDeclaration(Node):
         def __init__(self, idname, line):
-            global symbolValue
+            global symbolEBPoffset
             if idname not in symbolValue:
                 symbolValue[idname] = 0
             else:
@@ -96,12 +96,12 @@ class CParser(Parser):
             self.idname = idname
 
         def execute(self):
-            global symbolValue
+            global symbolEBPoffset
             return symbolValue[self.idname]
 
     class NodeAssign(Node):
         def __init__(self, idname, value, line):
-            global symbolValue
+            global symbolEBPoffset
             if idname in symbolValue:
                 symbolValue[idname] = value
             else:
@@ -306,7 +306,7 @@ class CParser(Parser):
         if p[0] in self.functions:
             raise RuntimeError('line ' + str(p.lineno) + ': Redeclaration of function ' + p[0] + ' is not allowed')
         else:
-            if p[0] in symbolValue:
+            if p[0] in symbolEBPoffset:
                 raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is already declared as a variable')
             else:
                 self.functions[p[0]] = 0
