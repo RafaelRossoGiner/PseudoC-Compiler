@@ -322,7 +322,7 @@ class CParser(Parser):
     @_('IF "(" expr ")" "{" sentence "}"',
        'IF "(" expr ")" "{" sentence "}" ELSE "{" sentence "}"')
     def instruction(self, p):
-        pass
+        i = 0
 
     @_('WHILE "(" expr ")" "{" sentence "}"')
     def instruction(self, p):
