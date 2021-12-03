@@ -1,7 +1,7 @@
 from sly import Lexer
 from sly import Parser
 
-global symbolEBPoffset, offsetEBP
+global symbolEBPoffset, offsetEBP, contador
 
 
 class bcolors:
@@ -269,6 +269,48 @@ class NodeScan(Node):
     def execute(self):
         pass
 
+class NodeIf(Node):
+    def __init__(self):
+        pass
+
+    def compare(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('popl %eax\n')
+            output.write('cmpl $0, %eax\n')
+            output.write('jne false\n')
+
+    def finalJump(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('jmp final\n')
+
+    def falseLabel(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('false' + contador + ':\n')
+
+    def finalLabel(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('final' + contador + ':\n')
+
+class NodeWhile(Node):
+    def __init__(self):
+        pass
+
+    def startLabel(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('start' + contador + ':\n')
+
+    def compare(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('popl %eax\n')
+            output.write('cmpl $0, %eax\n')
+            output.write('jne false\n')
+
+    def final(self):
+        def compare(self):
+            with open(super().outputFilename, 'a') as output:
+                output.write('jmp start\n')
+                output.write('final' + contador + ':\n')
+
 
 class CParser(Parser):
     tokens = CLexer.tokens
@@ -319,14 +361,50 @@ class CParser(Parser):
         return p[0]
 
     # Structure control
-    @_('IF "(" expr ")" "{" sentence "}"',
-       'IF "(" expr ")" "{" sentence "}" ELSE "{" sentence "}"')
+    @_('IFcondition "{" sentence "}"')
     def instruction(self, p):
-        i = 0
+        node = p[0]
+        node.finalJump()
+        node.finalLabel()
 
-    @_('WHILE "(" expr ")" "{" sentence "}"')
+    @_('IFcondition "{" sentence "}" jumpFinal ELSE "{" sentence "}"')
     def instruction(self, p):
-        pass
+        node = p[0]
+        node.finalLabel()
+
+    @_('')
+    def jumpFinal(self, p):
+        node = p[-4]
+        node.finalJump()
+        node.falseLabel()
+
+    @_('IF "(" expr ")"')
+    def IFcondition(self):
+        global contador
+        contador += 1
+        node = NodeIf()
+        node.compare()
+        return node
+
+    @_('WHILEcondition "{" sentence "}"')
+    def instruction(self, p):
+        node = p[0]
+        node.finalJump()
+        node.finalLabel()
+
+    @_('start WHILE "(" expr ")"')
+    def WHILEcondition(self, p):
+        node = p[0]
+        node.compare()
+        return node
+
+    @_('')
+    def start(self, p):
+        global contador
+        contador += 1
+        node = NodeWhile()
+        node.startLabel()
+        return node
 
     # Built-in Functions
     @_('PRINTF "(" STRING "," callParams ")" ";"')
@@ -574,6 +652,7 @@ class CParser(Parser):
 if __name__ == '__main__':
     symbolEBPoffset = {}
     offsetEBP = -4
+    contador = 0
     lexer = CLexer()
     parser = CParser()
     Node.outputFilename = "Output8.x86"
