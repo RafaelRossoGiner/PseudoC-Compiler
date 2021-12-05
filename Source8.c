@@ -2,17 +2,15 @@
 int a = 0;
 int nota = 10;
 
-while ( 0 ) {
-    int b;
-    b = b % -2;
-    while ( a ) {
-        if (nota){
-            printf("ESTO SE APRUEBA");
-        }else{
-            printf("ESTO NO SE APRUEBA");
-            while ( b%-a ) {
-                printf("hey");
-            }
-        }
+while (1) {
+
+    while(4-3) {
+
+    2+3;
+
     }
+
+    1*5;
+
 }
+3/5;
