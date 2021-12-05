@@ -135,13 +135,13 @@ class NodeArithmBinOp(Node):
 
             # Operation
             if op == '+':
-                output.write("addl " + p2str + "\n")
+                output.write("addl " + p2str + ', %eax' + "\n")
                 output.write("pushl %eax\n")
             elif op == '-':
-                output.write("subl " + p2str + "\n")
+                output.write("subl " + p2str + ', %eax' + "\n")
                 output.write("pushl %eax\n")
             elif op == '*':
-                output.write("imul " + p2str + "\n")
+                output.write("imull " + p2str + ', %eax' + "\n")
                 output.write("pushl %eax\n")
             elif op == '/':
                 output.write("cdq\n")
@@ -270,47 +270,58 @@ class NodeScan(Node):
         pass
 
 class NodeIf(Node):
-    def __init__(self):
-        pass
+    def __init__(self, ID):
+        self.ID = ID
 
     def compare(self):
         with open(super().outputFilename, 'a') as output:
             output.write('popl %eax\n')
             output.write('cmpl $0, %eax\n')
-            output.write('jne false\n')
+            output.write('je false' + str(self.ID) + '\n')
 
     def finalJump(self):
         with open(super().outputFilename, 'a') as output:
-            output.write('jmp final\n')
+            output.write('jmp final' + str(self.ID) + '\n')
 
     def falseLabel(self):
         with open(super().outputFilename, 'a') as output:
-            output.write('false' + contador + ':\n')
+            output.write('false' + str(self.ID) + ':\n')
 
     def finalLabel(self):
         with open(super().outputFilename, 'a') as output:
-            output.write('final' + contador + ':\n')
+            output.write('final' + str(self.ID) + ':\n')
 
 class NodeWhile(Node):
-    def __init__(self):
-        pass
+    def __init__(self, ID):
+        self.ID = ID
 
     def startLabel(self):
         with open(super().outputFilename, 'a') as output:
-            output.write('start' + contador + ':\n')
+            output.write('start' + str(self.ID) + ':\n')
 
     def compare(self):
         with open(super().outputFilename, 'a') as output:
             output.write('popl %eax\n')
             output.write('cmpl $0, %eax\n')
-            output.write('jne false\n')
+            output.write('je final' + str(self.ID) + '\n')
 
-    def final(self):
-        def compare(self):
-            with open(super().outputFilename, 'a') as output:
-                output.write('jmp start\n')
-                output.write('final' + contador + ':\n')
+    def jumpStart(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('jmp start' + str(self.ID) + '\n')
 
+    def falseLabel(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('false' + str(self.ID) + ':\n')
+
+    def finalLabel(self):
+        with open(super().outputFilename, 'a') as output:
+            output.write('final' + str(self.ID) + ':\n')
+
+
+def newLabelID():
+    global contador
+    contador += 1
+    return contador
 
 class CParser(Parser):
     tokens = CLexer.tokens
@@ -364,8 +375,7 @@ class CParser(Parser):
     @_('IFcondition "{" sentence "}"')
     def instruction(self, p):
         node = p[0]
-        node.finalJump()
-        node.finalLabel()
+        node.falseLabel()
 
     @_('IFcondition "{" sentence "}" jumpFinal ELSE "{" sentence "}"')
     def instruction(self, p):
@@ -379,30 +389,28 @@ class CParser(Parser):
         node.falseLabel()
 
     @_('IF "(" expr ")"')
-    def IFcondition(self):
-        global contador
-        contador += 1
-        node = NodeIf()
+    def IFcondition(self, p):
+        ID = newLabelID()
+        node = NodeIf(ID)
         node.compare()
         return node
 
     @_('WHILEcondition "{" sentence "}"')
     def instruction(self, p):
         node = p[0]
-        node.finalJump()
+        node.jumpStart()
         node.finalLabel()
 
-    @_('start WHILE "(" expr ")"')
+    @_('startWhile WHILE "(" expr ")"')
     def WHILEcondition(self, p):
         node = p[0]
         node.compare()
         return node
 
     @_('')
-    def start(self, p):
-        global contador
-        contador += 1
-        node = NodeWhile()
+    def startWhile(self, p):
+        ID = newLabelID()
+        node = NodeWhile(ID)
         node.startLabel()
         return node
 
