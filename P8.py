@@ -19,7 +19,7 @@ class bcolors:
 class CLexer(Lexer):
     tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
               INT, VOID, IF, ELSE, WHILE, RETURN, PRINTF, SCANF, STRING}
-    literals = {'=', '+', '-', '/', '*', '%', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&'}
+    literals = {'=', '+', '-', '/', '*', '%', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&', '<', '>'}
 
     # Tokens
 
@@ -65,6 +65,12 @@ class CLexer(Lexer):
         self.index += 1
 
 
+def newLabelID():
+    global contador
+    contador += 1
+    return contador
+
+
 # AST Nodes
 class Node:
     outputFilename = ""
@@ -73,6 +79,19 @@ class Node:
     def PrintError(msg, line):
         print(bcolors.BOLD, bcolors.OKGREEN, "Linea:", line, "->", msg)
         return
+
+    @staticmethod
+    def Write(line, comment=None):
+        with open(Node.outputFilename, 'a') as output:
+            if comment is None:
+                output.write("\t" + line + "\n")
+            else:
+                output.write("\t" + line + " #" + comment + "\n")
+
+    @staticmethod
+    def WriteLabel(label):
+        with open(Node.outputFilename, 'a') as output:
+            output.write(label + ':\n')
 
 
 class NodeDeclaration(Node):
@@ -114,87 +133,132 @@ class NodeAssign(Node):
 
 class NodeArithmBinOp(Node):
     def __init__(self, p1, p2, op):
-        with open(super().outputFilename, 'a') as output:
-            # Operand 2
-            if isinstance(p2, NodeId):
-                output.write("movl " + p2.offset + "(%ebp)" + ", %ebx\n")
-                p2str = "%ebx"
-            elif isinstance(p2, NodeNum):
-                p2str = "$" + p2.number
-            else:
-                output.write("popl " + "%ebx\n")
-                p2str = "%ebx"
+        # Operand 2
+        if isinstance(p2, NodeId):
+            super().Write("movl " + p2.offset + "(%ebp)" + ", %ebx")
+            p2str = "%ebx"
+        elif isinstance(p2, NodeNum):
+            p2str = "$" + p2.number
+        else:
+            super().Write("popl " + "%ebx")
+            p2str = "%ebx"
 
-            # Operand 1
-            if isinstance(p1, NodeId):
-                output.write("movl " + p1.offset + "(%ebp)" + ", %eax\n")
-            elif isinstance(p1, NodeNum):
-                output.write("movl $" + p1.number + ", %eax\n")
-            else:
-                output.write("popl " + "%eax\n")
+        # Operand 1
+        if isinstance(p1, NodeId):
+            super().Write("movl " + p1.offset + "(%ebp)" + ", %eax")
+        elif isinstance(p1, NodeNum):
+            super().Write("movl $" + p1.number + ", %eax")
+        else:
+            super().Write("popl " + "%eax")
 
-            # Operation
-            if op == '+':
-                output.write("addl " + p2str + ', %eax' + "\n")
-                output.write("pushl %eax\n")
-            elif op == '-':
-                output.write("subl " + p2str + ', %eax' + "\n")
-                output.write("pushl %eax\n")
-            elif op == '*':
-                output.write("imull " + p2str + ', %eax' + "\n")
-                output.write("pushl %eax\n")
-            elif op == '/':
-                output.write("cdq\n")
-                output.write("idivl " + p2str + "\n")
-                output.write("pushl %eax\n")
-            elif op == '%':
-                output.write("cdq\n")
-                output.write("idivl " + p2str + "\n")
-                output.write("pushl %ebx\n")
+        # Operation
+        if op == '+':
+            super().Write("addl " + p2str + ', %eax')
+            super().Write("pushl %eax")
+        elif op == '-':
+            super().Write("subl " + p2str + ', %eax')
+            super().Write("pushl %eax")
+        elif op == '*':
+            super().Write("imull " + p2str + ', %eax')
+            super().Write("pushl %eax")
+        elif op == '/':
+            super().Write("cdq")
+            super().Write("idivl " + p2str)
+            super().Write("pushl %eax")
+        elif op == '%':
+            super().Write("cdq")
+            super().Write("idivl " + p2str)
+            super().Write("pushl %ebx")
 
 
 class NodeRelationalBinOp(Node):
     def __init__(self, p1, p2, op):
-        self.n1 = p1
-        self.n2 = p2
-        self.operator = op
+        self.ID = newLabelID()
+        # Operand 2
+        if isinstance(p2, NodeId):
+            super().Write("movl " + p2.offset + "(%ebp)" + ", %ebx")
+            p2str = "%ebx"
+        elif isinstance(p2, NodeNum):
+            p2str = "$" + p2.number
+        else:
+            super().Write("popl " + "%ebx")
+            p2str = "%ebx"
 
-    def execute(self):
-        op = self.operator
+        # Operand 1
+        if isinstance(p1, NodeId):
+            p1str = p1.offset + "(%ebp)"
+        elif isinstance(p1, NodeNum):
+            p1str = "$" + p1.number
+        else:
+            super().Write("popl " + "%eax")
+            p1str = "%eax"
+
+        # Operation
+        super().Write("movl $1, %eax #assume true")
+        super().Write("cmp " + p1str + ", " + p2str)
         if op == '>':
-            result = self.n1 > self.n2
+            super().Write("jg condTrue" + str(self.ID))
         elif op == '>=':
-            result = self.n1 >= self.n2
+            super().Write("jge condTrue" + str(self.ID))
         elif op == '<':
-            result = self.n1 < self.n2
+            super().Write("jl condTrue" + str(self.ID))
         elif op == '<=':
-            result = self.n1 <= self.n2
+            super().Write("jle condTrue" + str(self.ID))
         elif op == '==':
-            result = self.n1 == self.n2
+            super().Write("je condTrue" + str(self.ID))
         elif op == '!=':
-            result = self.n1 != self.n2
-        return result
+            super().Write("jne condTrue" + str(self.ID))
+
+        super().Write("movl $0, %eax")
+        super().WriteLabel("condTrue" + str(self.ID))
+        super().Write("pushl %eax")
 
 
-class NodeLogicalBinOp(Node):
-    def __init__(self, p1, p2, op):
-        self.operator = op
+class NodeLogical(Node):
+    def __init__(self, op):
+        self.op = op
+        self.ID = newLabelID()
 
-        if type(p1) is not bool:
-            p1 = False if p1 == 0 else True
-        if type(p2) is not bool:
-            p2 = False if p2 == 0 else True
+    def firstOperand(self, p):
+        if isinstance(p, NodeId):
+            super().Write("movl " + p.offset + "(%ebp)" + ", %eax")
+            operand = "%eax"
+        elif isinstance(p, NodeNum):
+            operand = "$" + p.number
+        else:
+            super().Write("popl " + "%eax")
+            operand = "%eax"
 
-        self.n1 = p1
-        self.n2 = p2
+        super().Write("cmpl " + "$0, " + operand, "check if op1 is false")
+        if self.op == '&&':
+            super().Write("pushl $0", "assume result is False")
+            super().Write("je shortcut" + str(self.ID), "if op1 is false, don't check op2")
+        elif self.op == '||':
+            super().Write("pushl $1", "assume result is True")
+            super().Write("jne shortcut" + str(self.ID), "if op1 is true, don't check op2")
 
-    def execute(self):
-        op = self.operator
-        if op == '||':
-            result = self.n1 or self.n2
-        elif op == '&&':
-            result = self.n1 and self.n2
-        return result
+    def secondOperand(self, p):
+        if isinstance(p, NodeId):
+            super().Write("movl " + p.offset + "(%ebp)" + ", %eax")
+            operand = "%eax"
+        elif isinstance(p, NodeNum):
+            operand = "$" + p.number
+        else:
+            super().Write("popl " + "%eax")
+            operand = "%eax"
+
+        super().Write("cmpl " + "$0, " + operand, "check if op2 is false")
+        if self.op == '&&':
+            super().Write("movl $0, %eax", "assume result is False")
+            super().Write("je shortcut" + str(self.ID), "if op2 is False, jump")
+            super().Write("movl $1, %eax", "negate assumption")
+        elif self.op == '||':
+            super().Write("movl $1, %eax", "assume result is True")
+            super().Write("jne shortcut" + str(self.ID), "if op2 is True, jump")
+            super().Write("movl $0, %eax", "negate assumption")
+        super().Write("popl %ebx", "Remove result of op1")
+        super().Write("pushl %eax", "Push final operator result")
+        super().WriteLabel("shortcut" + str(self.ID))
 
 
 class NodeUnaryOp(Node):
@@ -202,22 +266,21 @@ class NodeUnaryOp(Node):
         self.op = op
         self.p1 = p1
 
-        with open(super().outputFilename, 'a') as output:
-            if op == '&':
-                pass
-            elif op == '-':
-                # Operand
-                if isinstance(p1, NodeId):
-                    output.write("movl " + p1.offset + "(%ebp)" + ", %eax\n")
-                elif isinstance(p1, NodeNum):
-                    output.write("movl $" + p1.number + ", %eax\n")
-                else:
-                    output.write("popl " + "%eax\n")
-
-                output.write("imul $-1\n")
-                output.write("pushl %eax\n")
+        if op == '&':
+            pass
+        elif op == '-':
+            # Operand
+            if isinstance(p1, NodeId):
+                super().Write("movl " + p1.offset + "(%ebp)" + ", %eax")
+            elif isinstance(p1, NodeNum):
+                super().Write("movl $" + p1.number + ", %eax")
             else:
-                raise RuntimeError('Invalid operation')
+                super().Write("popl " + "%eax")
+
+            super().Write("imul $-1")
+            super().Write("pushl %eax")
+        else:
+            raise RuntimeError('Invalid operation')
 
 
 class NodePrint(Node):
@@ -269,59 +332,47 @@ class NodeScan(Node):
     def execute(self):
         pass
 
+
 class NodeIf(Node):
     def __init__(self, ID):
         self.ID = ID
 
     def compare(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('popl %eax\n')
-            output.write('cmpl $0, %eax\n')
-            output.write('je false' + str(self.ID) + '\n')
+        super().Write('popl %eax\n')
+        super().Write('cmpl $0, %eax\n')
+        super().Write('je false' + str(self.ID))
 
     def finalJump(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('jmp final' + str(self.ID) + '\n')
+        super().Write('jmp final' + str(self.ID))
 
     def falseLabel(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('false' + str(self.ID) + ':\n')
+        super().Write('false' + str(self.ID) + ':')
 
     def finalLabel(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('final' + str(self.ID) + ':\n')
+        super().Write('final' + str(self.ID) + ':')
+
 
 class NodeWhile(Node):
     def __init__(self, ID):
         self.ID = ID
 
     def startLabel(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('start' + str(self.ID) + ':\n')
+        super().WriteLabel('start' + str(self.ID))
 
     def compare(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('popl %eax\n')
-            output.write('cmpl $0, %eax\n')
-            output.write('je final' + str(self.ID) + '\n')
+        super().Write('popl %eax')
+        super().Write('cmpl $0, %eax')
+        super().Write('jne final' + str(self.ID))
 
     def jumpStart(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('jmp start' + str(self.ID) + '\n')
+        super().Write('jmp start' + str(self.ID))
 
     def falseLabel(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('false' + str(self.ID) + ':\n')
+        super().WriteLabel('false' + str(self.ID))
 
     def finalLabel(self):
-        with open(super().outputFilename, 'a') as output:
-            output.write('final' + str(self.ID) + ':\n')
+        super().WriteLabel('final' + str(self.ID))
 
-
-def newLabelID():
-    global contador
-    contador += 1
-    return contador
 
 class CParser(Parser):
     tokens = CLexer.tokens
@@ -514,45 +565,51 @@ class CParser(Parser):
         return 0
 
     # Logical operators
-    @_('logicalOR LOGICOR logicalAND')
-    def logicalOR(self, p):
-        node = NodeLogicalBinOp(p[0], p[2], '||')
-        return node.execute()
+    @_('logicalOR LOGICOR')
+    def logicalORFirst(self, p):
+        node = NodeLogical('||')
+        node.firstOperand(p[0])
+        return node
 
-    @_('logicalAND LOGICAND comparison')
+    @_('logicalORFirst logicalAND')
+    def logicalOR(self, p):
+        p[0].secondOperand(p[1])
+        return p[0]
+
+    @_('logicalAND LOGICAND')
+    def logicalANDFirst(self, p):
+        node = NodeLogical('&&')
+        node.firstOperand(p[0])
+        return node
+
+    @_('logicalANDFirst comparison')
     def logicalAND(self, p):
-        node = NodeLogicalBinOp(p[0], p[2], '&&')
-        return node.execute()
+        p[0].secondOperand(p[1])
+        return p[0]
 
     @_('comparison EQUAL relation')
     def comparison(self, p):
-        node = NodeRelationalBinOp(p[0], p[2], '==')
-        return node.execute()
+        return NodeRelationalBinOp(p[0], p[2], '==')
 
     @_('comparison NOTEQUAL relation')
     def comparison(self, p):
-        node = NodeRelationalBinOp(p[0], p[2], '!=')
-        return node.execute()
+        return NodeRelationalBinOp(p[0], p[2], '!=')
 
     @_('relation "<" arithExpr')
     def relation(self, p):
-        node = NodeRelationalBinOp(p[0], p[2], '<')
-        return node.execute()
+        return NodeRelationalBinOp(p[0], p[2], '<')
 
     @_('relation LESSTHANEQUAL arithExpr')
     def relation(self, p):
-        node = NodeRelationalBinOp(p[0], p[2], '<=')
-        return node.execute()
+        return NodeRelationalBinOp(p[0], p[2], '<=')
 
     @_('relation ">" arithExpr')
     def relation(self, p):
-        node = NodeRelationalBinOp(p[0], p[2], '>')
-        return node.execute()
+        return NodeRelationalBinOp(p[0], p[2], '>')
 
     @_('relation GREATERTHANEQUAL arithExpr')
     def relation(self, p):
-        node = NodeRelationalBinOp(p[0], p[2], '>=')
-        return node.execute()
+        return NodeRelationalBinOp(p[0], p[2], '>=')
 
     # Arithmetic operators
     @_('arithExpr "+" term')
