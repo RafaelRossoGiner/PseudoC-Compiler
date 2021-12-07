@@ -720,7 +720,7 @@ if __name__ == '__main__':
     contador = 0
     lexer = CLexer()
     parser = CParser()
-    Node.outputFilename = "Output9.x86"
+    Node.outputFilename = "Output9.s"
     open(Node.outputFilename, 'w').close()
 
     text = open("Source9.c").read()
