@@ -1,7 +1,7 @@
 from sly import Lexer
 from sly import Parser
 
-global symbolEBPoffset, offsetEBP, contador
+global symbolEBPoffset, offsetEBP, contador, strings
 
 
 class bcolors:
@@ -338,18 +338,18 @@ class NodeIf(Node):
         self.ID = ID
 
     def compare(self):
-        super().Write('popl %eax\n')
-        super().Write('cmpl $0, %eax\n')
+        super().Write('popl %eax')
+        super().Write('cmpl $0, %eax')
         super().Write('je false' + str(self.ID))
 
     def finalJump(self):
         super().Write('jmp final' + str(self.ID))
 
     def falseLabel(self):
-        super().Write('false' + str(self.ID) + ':')
+        super().WriteLabel('false' + str(self.ID))
 
     def finalLabel(self):
-        super().Write('final' + str(self.ID) + ':')
+        super().WriteLabel('final' + str(self.ID))
 
 
 class NodeWhile(Node):
@@ -372,6 +372,29 @@ class NodeWhile(Node):
 
     def finalLabel(self):
         super().WriteLabel('final' + str(self.ID))
+
+
+class NodeFunction(Node):
+    def __init__(self, vars):
+        super().Write('pushl %ebp')
+        super().Write('movl %esp, %ebp')
+
+class NodeFunctionCall(Node):
+    def __init__(self, name, argc):
+        super().Write('call ' + name)
+        if argc > 0:
+            super().Write('addl $' + str(argc*4) + ', %esp')
+
+class NodeFunctionParam(Node):
+    def __init__(self, arg):
+        if isinstance(arg, NodeId):
+            super().Write('pushl ' + arg.offset + '(%ebp)')
+        elif isinstance(arg, NodeNum):
+            super().Write('pushl $' + arg.number)
+        elif isinstance(arg, NodeFunctionCall):
+            super().Write('pushl %eax')
+        else:
+            raise RuntimeError('Invalid node type')
 
 
 class CParser(Parser):
@@ -497,11 +520,13 @@ class CParser(Parser):
 
     @_('expr "," callParams')
     def callParams(self, p):
+        NodeFunctionParam(p.expr)
         p.callParams.append(p.expr)
         return p.callParams
 
     @_('expr')
     def callParams(self, p):
+        NodeFunctionParam(p.expr)
         return [p.expr]
 
     @_('address "," scanfParams')
@@ -513,14 +538,19 @@ class CParser(Parser):
     def scanfParams(self, p):
         return [p.address]
 
-    @_('ID "(" callParams ")"',
-       'ID "(" ")"')
+    @_('ID "(" callParams ")"')
     def num(self, p):
         if p[0] in self.functions:
-            pass
+            return NodeFunctionCall(p[0], len(p[2]))
         else:
             raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
-        return 0
+
+    @_('ID "(" ")"')
+    def num(self, p):
+        if p[0] in self.functions:
+            return NodeFunctionCall(p[0], 0)
+        else:
+            raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
 
     @_('RETURN expr ";"')
     def retInstruction(self, p):
@@ -718,6 +748,7 @@ if __name__ == '__main__':
     symbolEBPoffset = {}
     offsetEBP = -4
     contador = 0
+    strings = []
     lexer = CLexer()
     parser = CParser()
     Node.outputFilename = "Output9.s"
