@@ -374,10 +374,17 @@ class NodeWhile(Node):
         super().WriteLabel('final' + str(self.ID))
 
 
-class NodeFunction(Node):
-    def __init__(self, vars):
+class NodeFunctionPrologue(Node):
+    def __init__(self, name):
+        super().WriteLabel(name)
         super().Write('pushl %ebp')
         super().Write('movl %esp, %ebp')
+
+class NodeFunctionEpilogue(Node):
+    def __init__(self):
+        super().Write('movl %ebp, %esp')
+        super().Write('popl %ebp')
+        super().Write('ret')
 
 class NodeFunctionCall(Node):
     def __init__(self, name, argc):
@@ -391,11 +398,14 @@ class NodeFunctionParam(Node):
             super().Write('pushl ' + arg.offset + '(%ebp)')
         elif isinstance(arg, NodeNum):
             super().Write('pushl $' + arg.number)
-        elif isinstance(arg, NodeFunctionCall):
+        elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp):
             super().Write('pushl %eax')
         else:
             raise RuntimeError('Invalid node type')
 
+class NodeReturn(Node):
+    def __init__(self):
+        super().Write('movl something, %eax')
 
 class CParser(Parser):
     tokens = CLexer.tokens
@@ -554,6 +564,7 @@ class CParser(Parser):
 
     @_('RETURN expr ";"')
     def retInstruction(self, p):
+        NodeReturn()
         return
 
     @_('type ID  "(" params ")"',
@@ -580,18 +591,28 @@ class CParser(Parser):
                 self.functions[p[0]] = 0
         return 0
 
-    @_('functionDecl "{"',
-       'voidFunctionDecl "{"')
+    @_('functionDecl "{"')
     def functDefInit(self, p):
         self.functions[p[0]] = 0
+        NodeFunctionPrologue(p[0])
+        # Añadir la declaracion de variables
+        return 0
+
+    @_('voidFunctionDecl "{"')
+    def voidfunctDefInit(self, p):
+        self.functions[p[0]] = 0
+        NodeFunctionPrologue(p[0])
+        # Añadir la declaracion de variables
         return 0
 
     @_('functDefInit sentence retInstruction "}"')
     def instruction(self, p):
+        NodeFunctionEpilogue()
         return 0
 
-    @_('functDefInit sentence "}"')
+    @_('voidfunctDefInit sentence "}"')
     def instruction(self, p):
+        NodeFunctionEpilogue()
         return 0
 
     # Logical operators
@@ -664,7 +685,6 @@ class CParser(Parser):
         return NodeArithmBinOp(p[0], p[2], '%')
 
     # Unary operators
-
     @_('"&" ID')
     def address(self, p):
         NodeId(p[1], p.lineno)
@@ -678,7 +698,6 @@ class CParser(Parser):
         return NodeUnaryOp(p[1], '-')
 
     # Parenthesis
-
     @_('"(" expr ")"')
     def num(self, p):
         return p[1]

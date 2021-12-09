@@ -2,14 +2,14 @@
 int a = 0;
 int nota = 10;
 
-int suma(int ab, int b){
+int suma(int ab, int b) {
 
     return ab+b;
 
 }
 
-int llamaASuma(int d, int e){
+void llamaASuma(int d, int e) {
 
-    return suma(d, suma(2, 3));
+    printf("ey");
 
 }
