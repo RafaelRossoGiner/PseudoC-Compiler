@@ -93,6 +93,14 @@ class Node:
         with open(Node.outputFilename, 'a') as output:
             output.write(label + ':\n')
 
+    @staticmethod
+    def WriteStrings():
+        contador = 0
+        for string in strings:
+            Node.WriteLabel(".s" + str(contador))
+            Node.Write(string)
+            contador += 1
+
 
 class NodeDeclaration(Node):
     def __init__(self, idname, line):
@@ -299,12 +307,9 @@ class NodePrint(Node):
             else:
                 for val in values:
                     string = string.replace('%d', str(val), 1)
-                print(string)
         else:
             if string.count('%d') > 0:
                 super().PrintError('Number of parameters is different from the number of specifiers', line)
-            else:
-                print(string)
         pass
 
     def execute(self):
@@ -400,21 +405,27 @@ class NodeFunctionParam(Node):
             super().Write('pushl $' + arg.number)
         elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp):
             super().Write('pushl %eax')
+        elif isinstance(arg, int):
+            super().Write('pushl ' + '$s' + str(arg))
         else:
             raise RuntimeError('Invalid node type')
 
 class NodeReturn(Node):
     def __init__(self):
-        super().Write('movl something, %eax')
+        super().Write('movl PLACEHOLDER, %eax')
 
 class CParser(Parser):
     tokens = CLexer.tokens
-    start = 'sentence'
+    start = 'program'
 
     functions = {}
     parser = 0
 
     # Program structure
+    @_('sentence')
+    def program(self, p):
+        Node.WriteStrings()
+
     @_('instruction sentence')
     def sentence(self, p):
         return p[0]
@@ -501,10 +512,22 @@ class CParser(Parser):
     # Built-in Functions
     @_('PRINTF "(" STRING "," callParams ")" ";"')
     def instruction(self, p):
+        global strings
+        strings.append(p[2])
+        NodeFunctionParam(len(strings)-1)
+
+        NodeFunctionCall('printf', len(p[4])+1)
+
         NodePrint(p.lineno, p.STRING, p.callParams)
 
     @_('PRINTF "(" STRING ")" ";" ')
     def instruction(self, p):
+        global strings
+        strings.append(p[2])
+        NodeFunctionParam(len(strings) - 1)
+
+        NodeFunctionCall('printf', 1)
+
         NodePrint(p.lineno, p.STRING)
 
     @_('SCANF "(" STRING "," scanfParams ")" ";"')
