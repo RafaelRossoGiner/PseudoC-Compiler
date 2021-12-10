@@ -10,7 +10,6 @@ int suma(int ab, int b) {
 
 void llamaASuma(int d, int e) {
 
-    printf("ey %d %d", 3, 4);
-    printf("eye");
+    scanf("%d", a);
 
 }

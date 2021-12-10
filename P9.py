@@ -275,7 +275,10 @@ class NodeUnaryOp(Node):
         self.p1 = p1
 
         if op == '&':
-            pass
+            if isinstance(p1, NodeId):
+                super().Write("leal " + p1.offset + "(%ebp), %eax")
+            else:
+                raise RuntimeError("Reference '&' operator can only be applied to variable identifers")
         elif op == '-':
             # Operand
             if isinstance(p1, NodeId):
@@ -408,7 +411,7 @@ class NodeFunctionParam(Node):
         elif isinstance(arg, int):
             super().Write('pushl ' + '$s' + str(arg))
         else:
-            raise RuntimeError('Invalid node type')
+            raise RuntimeError('Invalid node type ' + str(type(arg)))
 
 class NodeReturn(Node):
     def __init__(self):
@@ -532,6 +535,12 @@ class CParser(Parser):
 
     @_('SCANF "(" STRING "," scanfParams ")" ";"')
     def instruction(self, p):
+        global strings
+        strings.append(p[2])
+        NodeFunctionParam(len(strings) - 1)
+
+        NodeFunctionCall('scanf', len(p[4])+1)
+
         NodeScan(p.lineno, p.STRING, p.scanfParams)
 
     # User Functions
@@ -553,23 +562,25 @@ class CParser(Parser):
 
     @_('expr "," callParams')
     def callParams(self, p):
-        NodeFunctionParam(p.expr)
-        p.callParams.append(p.expr)
+        NodeFunctionParam(p[0])
+        p.callParams.append(p[0])
         return p.callParams
 
     @_('expr')
     def callParams(self, p):
-        NodeFunctionParam(p.expr)
-        return [p.expr]
+        NodeFunctionParam(p[0])
+        return [p[0]]
 
     @_('address "," scanfParams')
     def scanfParams(self, p):
-        p.scanfParams.append(p.address)
-        return p.scanfParams
+        NodeFunctionParam(p[0])
+        p[2].append(p.address)
+        return p[2]
 
     @_('address')
     def scanfParams(self, p):
-        return [p.address]
+        NodeFunctionParam(p[0])
+        return [p[0]]
 
     @_('ID "(" callParams ")"')
     def num(self, p):
@@ -710,7 +721,22 @@ class CParser(Parser):
     # Unary operators
     @_('"&" ID')
     def address(self, p):
-        NodeId(p[1], p.lineno)
+        node = NodeId(p[1], p.lineno)
+        return NodeUnaryOp(node, '&')
+
+    @_('expr')
+    def address(self, p):
+        # Esto no habría que ponerlo en un AST porque es una
+        # diferenciación de tipos debida a nuestra implementación,
+        # no a la gramática que estamos implementando ni a ninguna
+        # operación relacionada con ella de forma teórica o conceptual.
+        if isinstance(p[0], NodeId):
+            return NodeId(p[0], p.lineno)
+        elif isinstance(p[0], NodeNum):
+            return NodeNum(p[0], p.lineno)
+        else:
+            raise RuntimeError("Can only use as an address a literal integer or"
+                               "an integer stored in a variable")
 
     @_('"!" unary')
     def unary(self, p):
