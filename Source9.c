@@ -1,15 +1,6 @@
-// Hola, comentario inocente paseándose por el código <3
-int a = 0;
-int nota = 10;
+// Hola, comentario
 
-int suma(int ab, int b) {
+int b = 3;
+int* a, c = b;
 
-    return ab+b;
-
-}
-
-void llamaASuma(int d, int e) {
-
-    scanf("%d", a);
-
-}
+*a[2] = *b[3][1];

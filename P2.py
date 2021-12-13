@@ -146,7 +146,7 @@ class CParser(Parser):
     def retInstruction(self, p):
         return
 
-    @_('type ID  "(" params ")"',
+    @_('type ID "(" params ")"',
        'type ID "(" typeDec ")"',
        'type ID "(" ")"')
     def functionDecl(self, p):
