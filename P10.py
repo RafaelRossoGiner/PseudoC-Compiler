@@ -2,7 +2,7 @@ from sly import Lexer
 from sly import Parser
 import re
 
-global symbolEBPoffset, offsetEBP, contador, symbolType
+global symbolEBPoffset, offsetEBP, contador
 
 
 class bcolors:
@@ -121,7 +121,7 @@ class NodeInt(Node):
 
 class NodeId(Node):
     def __init__(self, idname):
-        global symbolEBPoffset, symbolType
+        global symbolEBPoffset
         self.idname = idname
         self.val = symbolEBPoffset[self.idname]
         self.nodeType = symbolType[self.idname]
@@ -1036,10 +1036,10 @@ if __name__ == '__main__':
     strings = []
     lexer = CLexer()
     parser = CParser()
-    Node.outputFilename = "Output9.s"
+    Node.outputFilename = "Output10.s"
     open(Node.outputFilename, 'w').close()
 
-    text = open("Source9.c").read()
+    text = open("Source10.c").read()
     tokenizedText = lexer.tokenize(text)
     print("\n =========[ Lexer ] ===========")
     for token in tokenizedText:
