@@ -2,7 +2,7 @@ from sly import Lexer
 from sly import Parser
 import re
 
-global symbolEBPoffset, offsetEBP, contador
+global symbolEBPoffset, offsetEBP, contador, symbolType
 
 
 class bcolors:
@@ -121,7 +121,7 @@ class NodeInt(Node):
 
 class NodeId(Node):
     def __init__(self, idname):
-        global symbolEBPoffset
+        global symbolEBPoffset, symbolType
         self.idname = idname
         self.val = symbolEBPoffset[self.idname]
         self.nodeType = symbolType[self.idname]
