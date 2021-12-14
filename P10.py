@@ -23,7 +23,6 @@ class CLexer(Lexer):
     literals = {'=', '+', '-', '/', '*', '%', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&', '<', '>', '[', ']'}
 
     # Tokens
-
     EQUAL = r'=='
     LESSTHANEQUAL = r'<='
     GREATERTHANEQUAL = r'>='
@@ -151,6 +150,10 @@ class NodePointer(Node):
         self.refNode = refNode
         self.size = refNode.size
         return
+
+class NodeVoid(Node):
+    def __init__(self):
+        pass
 
 
 # AST Operation Nodes
@@ -570,9 +573,20 @@ class NodeFunctionEpilogue(Node):
         super().Write('popl %ebp')
         super().Write('ret')
 
-
 class NodeFunctionCall(Node):
-    def __init__(self, name, argc):
+    def __init__(self, name, argc, paramTypes):
+
+        # Check only for functions that are not printf or scanf
+        if paramTypes is not None:
+            argTypes = symbolType[name]
+            argTypes = argTypes[1]
+            if len(argTypes) != argc:
+                NodeError("Invalid number of arguments")
+            else:
+                for arg in range(0, len(argTypes)):
+                    if type(argTypes[arg]) != type(paramTypes[arg].nodeType):
+                        NodeError("Unexpected types for arguments")
+
         super().Write('call ' + name)
         if argc > 0:
             super().Write('addl $' + str(argc * 4) + ', %esp')
@@ -739,7 +753,7 @@ class CParser(Parser):
         strings.append(p[2])
         NodeFunctionParam(len(strings) - 1)
 
-        NodeFunctionCall('printf', 1)
+        NodeFunctionCall('printf', 1, None)
 
         NodePrint(p.lineno, p.STRING)
 
@@ -749,7 +763,7 @@ class CParser(Parser):
         strings.append(p[2])
         NodeFunctionParam(len(strings) - 1)
 
-        NodeFunctionCall('scanf', len(p[4]) + 1)
+        NodeFunctionCall('scanf', len(p[4]) + 1, None)
 
         NodeScan(p.lineno, p.STRING, p.scanfParams)
 
@@ -759,17 +773,25 @@ class CParser(Parser):
     def param(self, p):
         node = NodeDeclarationAssign(p[1])
         node.declare(p[0])
-        return node
+        return node.nodeType
 
-    @_('param "," params',
-       'param')
+    @_('param "," params')
     def params(self, p):
-        pass
+        p[2].append(p[0])
+        return p[2] # La lista resultante está al revés
 
-    @_('type "," typeDec',
-       'type')
+    @_('param')
+    def params(self, p):
+        return [p[0]]
+
+    @_('type "," typeDec')
     def typeDec(self, p):
-        pass
+        p[2].append(p[0])
+        return p[2] # La lista resultante está al revés0
+
+    @_( 'type')
+    def typeDec(self, p):
+        return [p[0]]
 
     @_('expr "," callParams')
     def callParams(self, p):
@@ -796,7 +818,7 @@ class CParser(Parser):
     @_('ID "(" callParams ")"')
     def num(self, p):
         if p[0] in self.functions:
-            return NodeFunctionCall(p[0], len(p[2]))
+            return NodeFunctionCall(p[0], len(p[2]), p[2])
         else:
             raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
 
@@ -806,23 +828,26 @@ class CParser(Parser):
             return NodeFunctionCall(p[0], 0)
         else:
             raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
-        return 0
 
     @_('RETURN expr ";"')
     def retInstruction(self, p):
         NodeReturn(p[1])
         return
 
-    @_('type ID  "(" params ")"',
+    @_('type ID "(" params ")"',
        'type ID "(" typeDec ")"',
        'type ID "(" ")"')
     def functionDecl(self, p):
+        global symbolType
+        symbolType[p[1]] = [p[0], p[3]]
         return p[1]
 
-    @_('VOID ID  "(" params ")"',
+    @_('VOID ID "(" params ")"',
        'VOID ID "(" typeDec ")"',
        'VOID ID "(" ")"')
     def voidFunctionDecl(self, p):
+        global symbolType
+        symbolType[p[1]] = [p[0], p[3]]
         return p[1]
 
     @_('functionDecl ";"',
