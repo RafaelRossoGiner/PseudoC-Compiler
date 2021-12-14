@@ -230,7 +230,7 @@ class NodeAssign(Node):
 
             # Get Lval
             if isinstance(idNode, NodeId):
-                self.lvalStr = expr.val + "(%ebp)"
+                self.lvalStr = idNode.val + "(%ebp)"
             elif isinstance(idNode, NodeAssign):
                 self.lvalStr = idNode.lvalStr
             else:
@@ -249,19 +249,19 @@ class NodeArithmBinOp(Node):
         self.nodeType = p1.nodeType
         # Operand 2
         if isinstance(p2, NodeId):
-            super().Write("movl " + p2.offset + "(%ebp)" + ", %ebx", p2.val + " (offset=" + p2.offset + ")")
+            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", p2.val + " (offset=" + p2.val + ")")
             p2str = "%ebx"
         elif isinstance(p2, NodeNum):
-            p2str = "$" + p2.number
+            p2str = "$" + p2.val
         else:
             super().Write("popl " + "%ebx", "Operand 2")
             p2str = "%ebx"
 
         # Operand 1
         if isinstance(p1, NodeId):
-            super().Write("movl " + p1.offset + "(%ebp)" + ", %eax", p1.val + " (offset=" + p1.offset + ")")
+            super().Write("movl " + p1.val + "(%ebp)" + ", %eax", p1.val + " (offset=" + p1.val + ")")
         elif isinstance(p1, NodeNum):
-            super().Write("movl $" + p1.number + ", %eax")
+            super().Write("movl $" + p1.val + ", %eax")
         else:
             super().Write("popl " + "%eax", "Operand 1")
 
@@ -291,19 +291,19 @@ class NodeRelationalBinOp(Node):
         self.nodeType = p1.nodeType
         # Operand 2
         if isinstance(p2, NodeId):
-            super().Write("movl " + p2.offset + "(%ebp)" + ", %ebx")
+            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx")
             p2str = "%ebx"
         elif isinstance(p2, NodeNum):
-            p2str = "$" + p2.number
+            p2str = "$" + p2.val
         else:
             super().Write("popl " + "%ebx")
             p2str = "%ebx"
 
         # Operand 1
         if isinstance(p1, NodeId):
-            p1str = p1.offset + "(%ebp)"
+            p1str = p1.val + "(%ebp)"
         elif isinstance(p1, NodeNum):
-            p1str = "$" + p1.number
+            p1str = "$" + p1.val
         else:
             super().Write("popl " + "%eax")
             p1str = "%eax"
@@ -338,10 +338,10 @@ class NodeLogical(Node):
     def firstOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.offset + "(%ebp)" + ", %eax")
+            super().Write("movl " + p.val + "(%ebp)" + ", %eax")
             operand = "%eax"
         elif isinstance(p, NodeNum):
-            operand = "$" + p.number
+            operand = "$" + p.val
         else:
             super().Write("popl " + "%eax")
             operand = "%eax"
@@ -357,10 +357,10 @@ class NodeLogical(Node):
     def secondOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.offset + "(%ebp)" + ", %eax")
+            super().Write("movl " + p.val + "(%ebp)" + ", %eax")
             operand = "%eax"
         elif isinstance(p, NodeNum):
-            operand = "$" + p.number
+            operand = "$" + p.val
         else:
             super().Write("popl " + "%eax")
             operand = "%eax"
