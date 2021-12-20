@@ -167,10 +167,14 @@ class NodeDeclarationAssign(Node):
 
     def declare(self, givenType):
         global symbolEBPoffset, offsetEBP, symbolType
+        # Obtain type and its size
+        self.nodeType = givenType
+        varSize = self.nodeType.size
+
         # Obtain array size multiplier and ID name
         super().Write("movl $1, %eax")
-        varSize = 1
         while isinstance(self.lval, NodeArray):
+            self.nodeType = NodePointer(self.nodeType)
             if isinstance(self.lval.indxVal, NodeNum):
                 sizeMult = "$" + self.lval.indxVal.val
                 varSize *= self.lval.indxVal.numVal
@@ -187,9 +191,6 @@ class NodeDeclarationAssign(Node):
         if self.idname in symbolEBPoffset:
             NodeError("Symbol " + self.idname + " is already declared")
         else:
-            # Obtain type and its size
-            self.nodeType = givenType
-            varSize *= self.nodeType.size
 
             # Create table entries
             symbolType[self.idname] = self.nodeType
@@ -250,6 +251,11 @@ class NodeIntCons(Node):
 
 class NodeArithmBinOp(Node):
     def __init__(self, p1, p2, op, line=None):
+        # Type Checking
+        if not isinstance(p1.nodeType, type(p2.nodeType)):
+            NodeError("Incompatible type of the operands!", line)
+        else:
+            self.nodeType = p1.nodeType
 
         # Operand 2
         if isinstance(p2, NodeId):
@@ -293,7 +299,7 @@ class NodeRelationalBinOp(Node):
     def __init__(self, p1, p2, op, line):
         self.ID = newLabelID()
 
-        # Type Checkingds
+        # Type Checking
         if not isinstance(p1.nodeType, type(p2.nodeType)):
             NodeError("Incompatible type of the operands!", line)
         else:
@@ -440,8 +446,8 @@ class NodeUnaryRefs(Node):
         self.p1 = p1
 
         if op == '&':
-            self.nodeType = NodePointer(p1.nodeType)
             if isinstance(p1, NodeId):
+                self.nodeType = NodePointer(p1.nodeType)
                 super().Write("movl " + p1.val + "(%ebp), %eax", "%eax is " + p1.idname)
             elif isinstance(p1, NodeNum):
                 NodeError("Reference '&' operator can only be applied to variable identifers")
@@ -454,7 +460,7 @@ class NodeUnaryRefs(Node):
             if not isinstance(p1.nodeType, NodePointer):
                 NodeError("Operand is not an address!", line)
             else:
-                self.nodeType = p1.nodeType.refNode.nodeType
+                self.nodeType = p1.nodeType.refNode
 
             if isinstance(p1, NodeNum):
                 super().Write("movl PTR [$" + p1.val + "], %eax")
@@ -469,7 +475,7 @@ class NodeUnaryRefs(Node):
             if not isinstance(p1.nodeType, NodePointer):
                 NodeError("Is not an address!", line)
             else:
-                self.nodeType = p1.nodeType.refNode.nodeType
+                self.nodeType = p1.nodeType.refNode
 
             # Calculate Offset
             if isinstance(offsetExpr, NodeNum):
@@ -1022,7 +1028,7 @@ class CParser(Parser):
 
     @_('INTVALUE')
     def num(self, p):
-        return NodeNum(p[0], NodeIntCons(), p.lineno)
+        return NodeNum(p[0], NodeInt(), p.lineno)
 
     @_('ID')
     def num(self, p):

@@ -2,12 +2,15 @@
 
 int suma(int x, int *y) {
     printf("ey %d", 3);
-    return x + y;
+    return x + *y;
 }
 
 int suma2(int x2, int *y2) {
     printf("ey %d", 3);
-    return x + y;
+    // Los tipos no son compatibles, da error la suma
+    return x2 + y2;
 }
 
-suma(3, 2);
+int* a;
+int **b[3][5];
+suma(3, *b[2][3]);
