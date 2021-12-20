@@ -293,7 +293,7 @@ class NodeRelationalBinOp(Node):
     def __init__(self, p1, p2, op, line):
         self.ID = newLabelID()
 
-        # Type Checking
+        # Type Checkingds
         if not isinstance(p1.nodeType, type(p2.nodeType)):
             NodeError("Incompatible type of the operands!", line)
         else:
