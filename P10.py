@@ -513,12 +513,9 @@ class NodePrint(Node):
             else:
                 for val in values:
                     string = string.replace('%d', str(val), 1)
-                print(string)
         else:
             if string.count('%d') > 0:
                 NodeError('Number of parameters is different from the number of specifiers', line)
-            else:
-                print(string)
         pass
 
     def execute(self):
@@ -599,14 +596,14 @@ class NodeFunctionEpilogue(Node):
     def __init__(self):
         super().Write('movl %ebp, %esp', "Function Epilogue")
         super().Write('popl %ebp')
-        super().Write('ret')
+        super().Write('ret\n')
 
 
 class NodeFunctionCall(Node):
     def __init__(self, name, argc, paramTypes):
 
         # Check only for functions that are not printf or scanf
-        if paramTypes is not None:
+        if name != 'printf' and name != 'scanf' and paramTypes is not None:
             argTypes = symbolType[name]
             argTypes = argTypes[1]
             if len(argTypes) != argc:
@@ -614,8 +611,6 @@ class NodeFunctionCall(Node):
             else:
                 for arg in range(0, len(argTypes)):
                     if type(argTypes[arg]) != type(paramTypes[arg].nodeType):
-                        print(argTypes[arg])
-                        print(type(paramTypes[arg].nodeType))
                         NodeError("Unexpected types for arguments")
 
         super().Write('call ' + name)
@@ -626,16 +621,15 @@ class NodeFunctionCall(Node):
 
 class NodeFunctionParam(Node):
     def __init__(self, arg):
-        if isinstance(arg.nodeType, NodeInt):
-            super().Write('pushl ' + arg.val + '(%ebp)')
-        elif isinstance(arg, NodeNum): # literales
-            super().Write('pushl $' + arg.val)
-        elif isinstance(arg.nodeType, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp):
-            super().Write('popl %eax')
-            super().Write('pushl %eax')
-        elif isinstance(arg, int): # cadena
+        if isinstance(arg, int):  # cadena
             super().Write('pushl ' + '$s' + str(arg))
-        elif isinstance(arg.nodeType, NodePointer):
+        elif isinstance(arg.nodeType, NodeInt): # variable entera
+            super().Write('pushl ' + arg.val + '(%ebp)')
+        elif isinstance(arg, NodeNum): # literal
+            super().Write('pushl $' + arg.val)
+        elif isinstance(arg.nodeType, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp): # resultado de función o expresión
+            pass
+        elif isinstance(arg.nodeType, NodePointer): # puntero
             super().Write('PLACEHOLDER isinstance(arg.nodeType, NodePointer)')
         else:
             raise RuntimeError('Invalid node type ' + str(type(arg.nodeType)))

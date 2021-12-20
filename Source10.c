@@ -1,12 +1,13 @@
 // Hola, comentario
 
-int b = 3;
-int* a, c = b;
-
-//*a[2] = *b[3][1];
-
-int suma(int x, int* y) {
-    return x + *y;
+int suma(int x, int *y) {
+    printf("ey %d", 3);
+    return x + y;
 }
 
-c = suma(b + 2, a);
+int suma2(int x2, int *y2) {
+    printf("ey %d", 3);
+    return x + y;
+}
+
+suma(3, 2);
