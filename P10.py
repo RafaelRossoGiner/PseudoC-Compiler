@@ -151,6 +151,7 @@ class NodePointer(Node):
         self.size = refNode.size
         return
 
+
 class NodeVoid(Node):
     def __init__(self):
         pass
@@ -239,7 +240,7 @@ class NodeAssign(Node):
             else:
                 super().Write("popl %ebx", "Pop lval value")
                 self.lvalStr = "%ebx"
-            super().Write("movl " + assignment + ", PTR [" + self.lvalStr + "]")
+            super().Write("movl " + assignment + ", PTR [" + self.lvalStr + "]", "Assign rval to where lval points")
 
 
 class NodeIntCons(Node):
@@ -248,8 +249,8 @@ class NodeIntCons(Node):
 
 
 class NodeArithmBinOp(Node):
-    def __init__(self, p1, p2, op):
-        self.nodeType = p1.nodeType
+    def __init__(self, p1, p2, op, line=None):
+
         # Operand 2
         if isinstance(p2, NodeId):
             super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", p2.val + " (offset=" + p2.val + ")")
@@ -289,9 +290,15 @@ class NodeArithmBinOp(Node):
 
 
 class NodeRelationalBinOp(Node):
-    def __init__(self, p1, p2, op):
+    def __init__(self, p1, p2, op, line):
         self.ID = newLabelID()
-        self.nodeType = p1.nodeType
+
+        # Type Checking
+        if not isinstance(p1.nodeType, type(p2.nodeType)):
+            NodeError("Incompatible type of the operands!", line)
+        else:
+            self.nodeType = p1.nodeType
+
         # Operand 2
         if isinstance(p2, NodeId):
             super().Write("movl " + p2.val + "(%ebp)" + ", %ebx")
@@ -383,12 +390,13 @@ class NodeLogical(Node):
 
 
 class NodeUnaryOp(Node):
-    def __init__(self, p1, op):
+    def __init__(self, p1, op, line):
         self.op = op
         self.p1 = p1
-        self.nodeType = p1.nodeType
 
         if op == '!':
+            # Type Checking
+            self.nodeType = p1.nodeType
             # Operand
             if isinstance(p1, NodeId):
                 super().Write("movl " + p1.val + "(%ebp)" + ", %eax", p1.val + "(%ebp) is " + p1.idname)
@@ -406,6 +414,11 @@ class NodeUnaryOp(Node):
             super().Write("puslh %eax", "Store result")
 
         elif op == '-':
+            if not isinstance(p1.nodeType, NodeInt):
+                NodeError("Incompatible type for unary minus operand!", line)
+            else:
+                self.nodeType = p1.nodeType
+
             # Operand
             if isinstance(p1, NodeId):
                 super().Write("movl " + p1.val + "(%ebp)" + ", %eax")
@@ -421,18 +434,28 @@ class NodeUnaryOp(Node):
 
 
 class NodeUnaryRefs(Node):
-    def __init__(self, p1, op, offsetExpr=None):
+    def __init__(self, p1, op, line, offsetExpr=None):
         global symbolEBPoffset, symbolType
         self.op = op
         self.p1 = p1
-        self.nodeType = p1.nodeType
 
         if op == '&':
+            self.nodeType = NodePointer(p1.nodeType)
             if isinstance(p1, NodeId):
-                super().Write("leal " + p1.val + "(%ebp), %eax")
+                super().Write("movl " + p1.val + "(%ebp), %eax", "%eax is " + p1.idname)
+            elif isinstance(p1, NodeNum):
+                NodeError("Reference '&' operator can only be applied to variable identifers")
             else:
-                raise RuntimeError("Reference '&' operator can only be applied to variable identifers")
+                super().Write("popl %eax")
+            super().Write("leal %eax, %eax")
+            super().Write("pushl %eax")
+
         elif op == '*':
+            if not isinstance(p1.nodeType, NodePointer):
+                NodeError("Operand is not an address!", line)
+            else:
+                self.nodeType = p1.nodeType.refNode.nodeType
+
             if isinstance(p1, NodeNum):
                 super().Write("movl PTR [$" + p1.val + "], %eax")
             elif isinstance(p1, NodeId):
@@ -443,6 +466,11 @@ class NodeUnaryRefs(Node):
             super().Write("pushl %eax")
 
         elif op == '[]':
+            if not isinstance(p1.nodeType, NodePointer):
+                NodeError("Is not an address!", line)
+            else:
+                self.nodeType = p1.nodeType.refNode.nodeType
+
             # Calculate Offset
             if isinstance(offsetExpr, NodeNum):
                 offset = "$" + offsetExpr.val
@@ -573,6 +601,7 @@ class NodeFunctionEpilogue(Node):
         super().Write('popl %ebp')
         super().Write('ret')
 
+
 class NodeFunctionCall(Node):
     def __init__(self, name, argc, paramTypes):
 
@@ -590,6 +619,7 @@ class NodeFunctionCall(Node):
         super().Write('call ' + name)
         if argc > 0:
             super().Write('addl $' + str(argc * 4) + ', %esp')
+        super().Write('pushl %eax')
 
 
 class NodeFunctionParam(Node):
@@ -599,6 +629,7 @@ class NodeFunctionParam(Node):
         elif isinstance(arg, NodeNum):
             super().Write('pushl $' + arg.val)
         elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp):
+            super().Write('popl %eax')
             super().Write('pushl %eax')
         elif isinstance(arg, int):
             super().Write('pushl ' + '$s' + str(arg))
@@ -778,7 +809,7 @@ class CParser(Parser):
     @_('param "," params')
     def params(self, p):
         p[2].append(p[0])
-        return p[2] # La lista resultante está al revés
+        return p[2]  # La lista resultante está al revés
 
     @_('param')
     def params(self, p):
@@ -787,9 +818,9 @@ class CParser(Parser):
     @_('type "," typeDec')
     def typeDec(self, p):
         p[2].append(p[0])
-        return p[2] # La lista resultante está al revés0
+        return p[2]  # La lista resultante está al revés0
 
-    @_( 'type')
+    @_('type')
     def typeDec(self, p):
         return [p[0]]
 
@@ -804,13 +835,13 @@ class CParser(Parser):
         NodeFunctionParam(p[0])
         return [p[0]]
 
-    @_('address "," scanfParams')
+    @_('unary "," scanfParams')
     def scanfParams(self, p):
         NodeFunctionParam(p[0])
         p[2].append(p.address)
         return p[2]
 
-    @_('address')
+    @_('unary')
     def scanfParams(self, p):
         NodeFunctionParam(p[0])
         return [p[0]]
@@ -911,78 +942,74 @@ class CParser(Parser):
 
     @_('comparison EQUAL relation')
     def comparison(self, p):
-        return NodeRelationalBinOp(p[0], p[2], '==')
+        return NodeRelationalBinOp(p[0], p[2], '==', p.lineno)
 
     @_('comparison NOTEQUAL relation')
     def comparison(self, p):
-        return NodeRelationalBinOp(p[0], p[2], '!=')
+        return NodeRelationalBinOp(p[0], p[2], '!=', p.lineno)
 
     @_('relation "<" arithExpr')
     def relation(self, p):
-        return NodeRelationalBinOp(p[0], p[2], '<')
+        return NodeRelationalBinOp(p[0], p[2], '<', p.lineno)
 
     @_('relation LESSTHANEQUAL arithExpr')
     def relation(self, p):
-        return NodeRelationalBinOp(p[0], p[2], '<=')
+        return NodeRelationalBinOp(p[0], p[2], '<=', p.lineno)
 
     @_('relation ">" arithExpr')
     def relation(self, p):
-        return NodeRelationalBinOp(p[0], p[2], '>')
+        return NodeRelationalBinOp(p[0], p[2], '>', p.lineno)
 
     @_('relation GREATERTHANEQUAL arithExpr')
     def relation(self, p):
-        return NodeRelationalBinOp(p[0], p[2], '>=')
+        return NodeRelationalBinOp(p[0], p[2], '>=', p.lineno)
 
     # Arithmetic operators
     @_('arithExpr "+" term')
     def arithExpr(self, p):
-        return NodeArithmBinOp(p[0], p[2], '+')
+        return NodeArithmBinOp(p[0], p[2], '+', p.lineno)
 
     @_('arithExpr "-" term')
     def arithExpr(self, p):
         pass
-        return NodeArithmBinOp(p[0], p[2], '-')
+        return NodeArithmBinOp(p[0], p[2], '-', p.lineno)
 
     @_('term "*" fact')
     def term(self, p):
-        return NodeArithmBinOp(p[0], p[2], '*')
+        return NodeArithmBinOp(p[0], p[2], '*', p.lineno)
 
     @_('term "/" fact')
     def term(self, p):
-        return NodeArithmBinOp(p[0], p[2], '/')
+        return NodeArithmBinOp(p[0], p[2], '/', p.lineno)
 
     @_('term "%" fact')
     def term(self, p):
-        return NodeArithmBinOp(p[0], p[2], '%')
+        return NodeArithmBinOp(p[0], p[2], '%', p.lineno)
 
     # Unary operators
     @_('"!" unary')
     def unary(self, p):
-        return NodeUnaryOp(p[1], '!')
+        return NodeUnaryOp(p[1], '!', p.lineno)
 
     @_('"-" unary')
     def unary(self, p):
-        return NodeUnaryOp(p[1], '-')
+        return NodeUnaryOp(p[1], '-', p.lineno)
 
     @_('"*" unary')
     def unary(self, p):
-        return NodeUnaryRefs(p[1], '*')
+        return NodeUnaryRefs(p[1], '*', p.lineno)
 
-    @_('"&" expr')
-    def address(self, p):
+    @_('"&" unary')
+    def unary(self, p):
         # Esto no habría que ponerlo en un AST porque es una
         # diferenciación de tipos debida a nuestra implementación,
         # no a la gramática que estamos implementando ni a ninguna
         # operación relacionada con ella de forma teórica o conceptual.
-        return NodeUnaryRefs(p[1], '&')
-
-    @_('expr')
-    def address(self, p):
-        return p[0]
+        return NodeUnaryRefs(p[1], '&', p.lineno)
 
     @_('postfix "[" expr "]"')
     def postfix(self, p):
-        return NodeUnaryRefs(p[0], '[]', p[2])
+        return NodeUnaryRefs(p[0], '[]', p.lineno, p[2])
 
     # Parenthesis
     @_('"(" expr ")"')
