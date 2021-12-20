@@ -614,6 +614,8 @@ class NodeFunctionCall(Node):
             else:
                 for arg in range(0, len(argTypes)):
                     if type(argTypes[arg]) != type(paramTypes[arg].nodeType):
+                        print(argTypes[arg])
+                        print(type(paramTypes[arg].nodeType))
                         NodeError("Unexpected types for arguments")
 
         super().Write('call ' + name)
@@ -624,17 +626,19 @@ class NodeFunctionCall(Node):
 
 class NodeFunctionParam(Node):
     def __init__(self, arg):
-        if isinstance(arg, NodeId):
+        if isinstance(arg.nodeType, NodeInt):
             super().Write('pushl ' + arg.val + '(%ebp)')
-        elif isinstance(arg, NodeNum):
+        elif isinstance(arg, NodeNum): # literales
             super().Write('pushl $' + arg.val)
-        elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp):
+        elif isinstance(arg.nodeType, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp):
             super().Write('popl %eax')
             super().Write('pushl %eax')
-        elif isinstance(arg, int):
+        elif isinstance(arg, int): # cadena
             super().Write('pushl ' + '$s' + str(arg))
+        elif isinstance(arg.nodeType, NodePointer):
+            super().Write('PLACEHOLDER isinstance(arg.nodeType, NodePointer)')
         else:
-            raise RuntimeError('Invalid node type ' + str(type(arg)))
+            raise RuntimeError('Invalid node type ' + str(type(arg.nodeType)))
 
 
 class NodeReturn(Node):
@@ -774,7 +778,7 @@ class CParser(Parser):
         strings.append(p[2])
         NodeFunctionParam(len(strings) - 1)
 
-        NodeFunctionCall('printf', len(p[4]) + 1)
+        NodeFunctionCall('printf', len(p[4]) + 1, p[4])
 
         NodePrint(p.lineno, p.STRING, p.callParams)
 
@@ -856,7 +860,7 @@ class CParser(Parser):
     @_('ID "(" ")"')
     def num(self, p):
         if p[0] in self.functions:
-            return NodeFunctionCall(p[0], 0)
+            return NodeFunctionCall(p[0], 0, None)
         else:
             raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
 

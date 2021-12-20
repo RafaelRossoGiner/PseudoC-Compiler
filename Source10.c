@@ -9,4 +9,4 @@ int suma(int x, int* y) {
     return x + *y;
 }
 
-c = suma(*a, 0);
+c = suma(b + 2, a);
