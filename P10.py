@@ -627,19 +627,17 @@ class NodeFunctionCall(Node):
 
 class NodeFunctionParam(Node):
     def __init__(self, arg):
+        # Code writing
         if isinstance(arg, int):  # cadena
             super().Write('pushl ' + '$s' + str(arg))
-        elif isinstance(arg.nodeType, NodeInt): # variable entera
-            super().Write('pushl ' + arg.val + '(%ebp)')
-        elif isinstance(arg, NodeNum): # literal
+        elif isinstance(arg, NodeNum):  # literal
             super().Write('pushl $' + arg.val)
-        elif isinstance(arg.nodeType, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg, NodeArithmBinOp): # resultado de función o expresión
+        elif isinstance(arg, NodeId):  # literal
+            super().Write('pushl ' + arg.val + '%(ebp)')
+        elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg,                                                                                        NodeArithmBinOp):  # resultado de función o expresión
             pass
-        elif isinstance(arg.nodeType, NodePointer): # puntero
-            super().Write('PLACEHOLDER isinstance(arg.nodeType, NodePointer)')
         else:
-            raise RuntimeError('Invalid node type ' + str(type(arg.nodeType)))
-
+            pass
 
 class NodeReturn(Node):
     def __init__(self, exprNode):

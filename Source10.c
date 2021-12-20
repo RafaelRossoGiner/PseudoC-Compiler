@@ -13,4 +13,5 @@ int suma2(int x2, int *y2) {
 
 int* a;
 int **b[3][5];
-suma(3, *b[2][3]);
+int result = suma(*a, *b[2][3]);
+suma(result, &result);
