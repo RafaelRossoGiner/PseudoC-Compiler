@@ -2,7 +2,10 @@
 
 int a;
 
-noDeclarado = 7;
+noDeclarado = 7; // Da error
+/*
+Comentario de bloque
+*/
 
 int suma(int x , int *y) {
     int local; //local:-4
