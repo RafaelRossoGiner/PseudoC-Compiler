@@ -2,8 +2,8 @@ from sly import Lexer
 from sly import Parser
 import re
 
-global symbolEBPoffset, offsetEBP, contador, symbolType
-global localEBPoffset, local
+global EBPoffsetTable, typeTable, counterEBP, counterString
+global local_EBPoffsetTable, local_typeTable
 
 
 class bcolors:
@@ -72,9 +72,9 @@ class CLexer(Lexer):
 
 
 def newLabelID():
-    global contador
-    contador += 1
-    return contador
+    global counterString
+    counterString += 1
+    return counterString
 
 
 # AST Nodes
@@ -121,10 +121,10 @@ class NodeInt(Node):
 
 class NodeId(Node):
     def __init__(self, idname):
-        global symbolEBPoffset, symbolType
+        global EBPoffsetTable, typeTable
         self.idname = idname
-        self.val = symbolEBPoffset[self.idname]
-        self.nodeType = symbolType[self.idname]
+        self.val = EBPoffsetTable[self.idname]
+        self.nodeType = typeTable[self.idname]
 
 
 class NodeNum(Node):
@@ -167,7 +167,7 @@ class NodeDeclarationAssign(Node):
         self.nodeType = None
 
     def declare(self, givenType):
-        global symbolEBPoffset, offsetEBP, symbolType
+        global EBPoffsetTable, counterEBP, typeTable
         # Obtain type and its size
         self.nodeType = givenType
         varSize = self.nodeType.size
@@ -180,7 +180,7 @@ class NodeDeclarationAssign(Node):
                 sizeMult = "$" + self.lval.indxVal.val
                 varSize *= self.lval.indxVal.numVal
             elif isinstance(self.lval.indxVal, NodeId):
-                sizeMult = symbolEBPoffset[self.lval.indxVal.val] + "(%ebp)"
+                sizeMult = EBPoffsetTable[self.lval.indxVal.val] + "(%ebp)"
             else:
                 super().Write("popl %ebx")
                 sizeMult = "%ebx"
@@ -189,18 +189,18 @@ class NodeDeclarationAssign(Node):
 
         # Obtain name and check table
         self.idname = self.lval
-        if self.idname in symbolEBPoffset:
+        if self.idname in EBPoffsetTable:
             NodeError("Symbol " + self.idname + " is already declared")
         else:
 
             # Create table entries
-            symbolType[self.idname] = self.nodeType
-            symbolEBPoffset[self.idname] = str(offsetEBP)
+            typeTable[self.idname] = self.nodeType
+            EBPoffsetTable[self.idname] = str(counterEBP)
 
             # Reserve space and update counter
-            offsetEBP = offsetEBP - varSize
+            counterEBP = counterEBP - varSize
             super().Write("subl $" + str(varSize) + ", %esp",
-                          self.idname + " (offset=" + symbolEBPoffset[self.idname] + ")")
+                          self.idname + " (offset=" + EBPoffsetTable[self.idname] + ")")
 
             # Initialize if necessary
             if self.rval is not None:
@@ -212,13 +212,13 @@ class NodeDeclarationAssign(Node):
                     super().Write("popl %eax", "Pop assignment value")
                     strOp1 = "%eax"
 
-                super().Write("movl " + strOp1 + ", " + symbolEBPoffset[self.idname] + "(%ebp)",
+                super().Write("movl " + strOp1 + ", " + EBPoffsetTable[self.idname] + "(%ebp)",
                               self.idname + " = assignment")
 
 
 class NodeAssign(Node):
     def __init__(self, idNode, expr, line):
-        global symbolEBPoffset
+        global EBPoffsetTable
         self.nodeType = idNode.nodeType
         if isinstance(idNode, NodeNum):
             NodeError("Left member of assignment is not a valid Lval!", line)
@@ -229,7 +229,7 @@ class NodeAssign(Node):
             elif isinstance(expr, NodeNum):
                 assignment = "$" + expr.val
             elif isinstance(expr, NodeAssign):
-                assignment = symbolEBPoffset[expr.idname] + "(%ebp)"
+                assignment = EBPoffsetTable[expr.idname] + "(%ebp)"
             else:
                 super().Write("popl %eax", "Pop assignment value")
                 assignment = "%eax"
@@ -442,7 +442,7 @@ class NodeUnaryOp(Node):
 
 class NodeUnaryRefs(Node):
     def __init__(self, p1, op, line, offsetExpr=None):
-        global symbolEBPoffset, symbolType
+        global EBPoffsetTable, typeTable
         self.op = op
         self.p1 = p1
 
@@ -611,7 +611,7 @@ class NodeFunctionCall(Node):
 
         # Check only for functions that are not printf or scanf
         if name != 'printf' and name != 'scanf' and paramTypes is not None:
-            argTypes = symbolType[name]
+            argTypes = typeTable[name]
             argTypes = argTypes[1]
             if len(argTypes) != argc:
                 NodeError("Invalid number of arguments")
@@ -633,7 +633,7 @@ class NodeFunctionParam(Node):
             super().Write('pushl ' + '$s' + str(arg))
         elif isinstance(arg, NodeNum):  # literal
             super().Write('pushl $' + arg.val)
-        elif isinstance(arg, NodeId):  # variable
+        elif isinstance(arg, NodeId):  # literal
             super().Write('pushl ' + arg.val + '%(ebp)')
         elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg,                                                                                        NodeArithmBinOp):  # resultado de función o expresión
             pass
@@ -805,6 +805,7 @@ class CParser(Parser):
     @_('type ID',
        'VOID ID')
     def param(self, p):
+        # Crear Node Param
         node = NodeDeclarationAssign(p[1])
         node.declare(p[0])
         return node.nodeType
@@ -872,16 +873,16 @@ class CParser(Parser):
        'type ID "(" typeDec ")"',
        'type ID "(" ")"')
     def functionDecl(self, p):
-        global symbolType
-        symbolType[p[1]] = [p[0], p[3]]
+        global typeTable
+        typeTable[p[1]] = [p[0], p[3]]
         return p[1]
 
     @_('VOID ID "(" params ")"',
        'VOID ID "(" typeDec ")"',
        'VOID ID "(" ")"')
     def voidFunctionDecl(self, p):
-        global symbolType
-        symbolType[p[1]] = [p[0], p[3]]
+        global typeTable
+        typeTable[p[1]] = [p[0], p[3]]
         return p[1]
 
     @_('functionDecl ";"',
@@ -890,7 +891,7 @@ class CParser(Parser):
         if p[0] in self.functions:
             raise RuntimeError('line ' + str(p.lineno) + ': Redeclaration of function ' + p[0] + ' is not allowed')
         else:
-            if p[0] in symbolEBPoffset:
+            if p[0] in EBPoffsetTable:
                 raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is already declared as a variable')
             else:
                 self.functions[p[0]] = 0
@@ -1084,17 +1085,19 @@ class CParser(Parser):
 
 
 if __name__ == '__main__':
-    symbolEBPoffset = {}
-    symbolType = {}
-    offsetEBP = -4
-    contador = 0
+    EBPoffsetTable = {}
+    typeTable = {}
+    local_typeTable = {}
+    local_EBPoffsetTable = {}
+    counterEBP = -4
+    counterString = 0
     strings = []
     lexer = CLexer()
     parser = CParser()
-    Node.outputFilename = "Output10.s"
+    Node.outputFilename = "Output11.s"
     open(Node.outputFilename, 'w').close()
 
-    text = open("Source10.c").read()
+    text = open("Source11.c").read()
     tokenizedText = lexer.tokenize(text)
     print("\n =========[ Lexer ] ===========")
     for token in tokenizedText:
