@@ -3,7 +3,7 @@ from sly import Parser
 import re
 
 global EBPoffsetTable, typeTable, counterEBP, counterString
-global local_EBPoffsetTable, local_typeTable
+global local_EBPoffsetTable, local_typeTable, local_counterEBP
 
 
 class bcolors:
@@ -19,7 +19,7 @@ class bcolors:
 
 
 class CLexer(Lexer):
-    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE, FLOATVALUE,
+    tokens = {EQUAL, LESSTHANEQUAL, GREATERTHANEQUAL, NOTEQUAL, LOGICAND, LOGICOR, ID, INTVALUE,
               INT, VOID, IF, ELSE, WHILE, RETURN, PRINTF, SCANF, STRING}
     literals = {'=', '+', '-', '/', '*', '%', '!', ';', ',', '(', ')', '{', '}', ',', '"', '&', '<', '>', '[', ']'}
 
@@ -38,7 +38,6 @@ class CLexer(Lexer):
         return t
 
     ID = r'[a-zA-Z_][a-zA-Z0-9_]*'
-    FLOATVALUE = r'[0-9]+[.][0-9]+[f]?'
     INTVALUE = r'[0-9]+[f]?'
 
     ignore_space = r' '
@@ -107,10 +106,9 @@ class Node:
 class NodeError(Node):
     def __init__(self, msg, line=None):
         if line is not None:
-            print(bcolors.BOLD, bcolors.OKGREEN, "Linea:", line, "->", msg, bcolors.ENDC)
+            raise RuntimeError(bcolors.BOLD + bcolors.OKGREEN + "Linea:" + str(line) + "->" + msg + bcolors.ENDC)
         else:
-            print(bcolors.BOLD, bcolors.OKGREEN, "->", msg, bcolors.ENDC)
-        return
+            raise RuntimeError(bcolors.BOLD + bcolors.OKGREEN + "->" + msg + bcolors.ENDC)
 
 
 # AST Type Nodes
@@ -120,11 +118,18 @@ class NodeInt(Node):
 
 
 class NodeId(Node):
-    def __init__(self, idname):
+    def __init__(self, idname, line=None):
         global EBPoffsetTable, typeTable
         self.idname = idname
-        self.val = EBPoffsetTable[self.idname]
-        self.nodeType = typeTable[self.idname]
+        if local_EBPoffsetTable is not None:
+            if self.idname in local_EBPoffsetTable:
+                self.val = local_EBPoffsetTable[self.idname]
+                self.nodeType = local_typeTable[self.idname]
+        elif self.idname in EBPoffsetTable:
+            self.val = EBPoffsetTable[self.idname]
+            self.nodeType = typeTable[self.idname]
+        else:
+            NodeError("Symbol " + self.idname + " is not declared!", line)
 
 
 class NodeNum(Node):
@@ -160,16 +165,18 @@ class NodeVoid(Node):
 
 # AST Operation Nodes
 class NodeDeclarationAssign(Node):
-    def __init__(self, elmNode, expr=None):
+    def __init__(self, elmNode, expr=None, givenType=None):
         self.rval = expr
         self.lval = elmNode
-        self.idname = None
-        self.nodeType = None
-
-    def declare(self, givenType):
-        global EBPoffsetTable, counterEBP, typeTable
-        # Obtain type and its size
+        self.idname = None # Eliminar
         self.nodeType = givenType
+
+    def declare(self, givenType=None):
+        global EBPoffsetTable, counterEBP, typeTable
+        global local_EBPoffsetTable, local_counterEBP, local_typeTable
+        # Obtain type and its size
+        if givenType is not None:
+            self.nodeType = givenType
         varSize = self.nodeType.size
 
         # Obtain array size multiplier and ID name
@@ -192,28 +199,50 @@ class NodeDeclarationAssign(Node):
         if self.idname in EBPoffsetTable:
             NodeError("Symbol " + self.idname + " is already declared")
         else:
+            if local_EBPoffsetTable is None:
+                # Create table entries in Global Scope
+                typeTable[self.idname] = self.nodeType
+                EBPoffsetTable[self.idname] = str(counterEBP)
 
-            # Create table entries
-            typeTable[self.idname] = self.nodeType
-            EBPoffsetTable[self.idname] = str(counterEBP)
+                # Reserve space and update counter
+                counterEBP = counterEBP - varSize
+                super().Write("subl $" + str(varSize) + ", %esp",
+                              self.idname + " (offset=" + EBPoffsetTable[self.idname] + ")")
 
-            # Reserve space and update counter
-            counterEBP = counterEBP - varSize
-            super().Write("subl $" + str(varSize) + ", %esp",
-                          self.idname + " (offset=" + EBPoffsetTable[self.idname] + ")")
+                # Initialize if necessary
+                if self.rval is not None:
+                    if isinstance(self.rval, NodeId):
+                        strOp1 = self.rval.val + "(%ebp)"
+                    elif isinstance(self.rval, NodeNum):
+                        strOp1 = "$" + self.rval.val
+                    else:
+                        super().Write("popl %eax", "Pop assignment value")
+                        strOp1 = "%eax"
 
-            # Initialize if necessary
-            if self.rval is not None:
-                if isinstance(self.rval, NodeId):
-                    strOp1 = self.rval.val + "(%ebp)"
-                elif isinstance(self.rval, NodeNum):
-                    strOp1 = "$" + self.rval.val
-                else:
-                    super().Write("popl %eax", "Pop assignment value")
-                    strOp1 = "%eax"
+                    super().Write("movl " + strOp1 + ", " + EBPoffsetTable[self.idname] + "(%ebp)",
+                                  self.idname + " = assignment")
+            else:
+                # Create table entries in Local Scope
+                local_typeTable[self.idname] = self.nodeType
+                local_EBPoffsetTable[self.idname] = str(local_counterEBP)
 
-                super().Write("movl " + strOp1 + ", " + EBPoffsetTable[self.idname] + "(%ebp)",
-                              self.idname + " = assignment")
+                # Reserve space and update counter
+                local_counterEBP = local_counterEBP - varSize
+                super().Write("subl $" + str(varSize) + ", %esp",
+                              self.idname + " (offset=" + local_EBPoffsetTable[self.idname] + ")")
+
+                # Initialize if necessary
+                if self.rval is not None:
+                    if isinstance(self.rval, NodeId):
+                        strOp1 = self.rval.val + "(%ebp)"
+                    elif isinstance(self.rval, NodeNum):
+                        strOp1 = "$" + self.rval.val
+                    else:
+                        super().Write("popl %eax", "Pop assignment value")
+                        strOp1 = "%eax"
+
+                    super().Write("movl " + strOp1 + ", " + local_EBPoffsetTable[self.idname] + "(%ebp)",
+                                  self.idname + " = assignment")
 
 
 class NodeAssign(Node):
@@ -229,7 +258,7 @@ class NodeAssign(Node):
             elif isinstance(expr, NodeNum):
                 assignment = "$" + expr.val
             elif isinstance(expr, NodeAssign):
-                assignment = EBPoffsetTable[expr.idname] + "(%ebp)"
+                assignment = expr.lvalStr + "(%ebp)"
             else:
                 super().Write("popl %eax", "Pop assignment value")
                 assignment = "%eax"
@@ -605,8 +634,8 @@ class NodeFunctionPrologue(Node):
         local_ParamEBP = 8
         local_EBPoffsetTable = {}
         for arg in reversed(funcArgs):
-            local_EBPoffsetTable[arg.idname] = local_ParamEBP
-            local_typeTable[arg.idname] = arg.nodeType
+            local_EBPoffsetTable[arg.lval] = str(local_ParamEBP)
+            local_typeTable[arg.lval] = arg.nodeType
             local_ParamEBP += 4
 
 
@@ -637,7 +666,7 @@ class NodeFunctionCall(Node):
                 NodeError("Invalid number of arguments")
             else:
                 for arg in range(0, len(argTypes)):
-                    if type(argTypes[arg]) != type(paramTypes[arg].nodeType):
+                    if not isinstance(argTypes[arg].nodeType, type(paramTypes[arg].nodeType)):
                         NodeError("Unexpected types for arguments")
 
         super().Write('call ' + name)
@@ -655,10 +684,12 @@ class NodeFunctionParam(Node):
             super().Write('pushl $' + arg.val)
         elif isinstance(arg, NodeId):  # literal
             super().Write('pushl ' + arg.val + '%(ebp)')
-        elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg,                                                                                        NodeArithmBinOp):  # resultado de función o expresión
+        elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg,
+                                                                                             NodeArithmBinOp):  # resultado de función o expresión
             pass
         else:
             pass
+
 
 class NodeReturn(Node):
     def __init__(self, exprNode):
@@ -1058,7 +1089,7 @@ class CParser(Parser):
 
     @_('ID')
     def num(self, p):
-        return NodeId(p[0])
+        return NodeId(p[0], p.lineno)
 
     @_('num')
     def postfix(self, p):
@@ -1113,9 +1144,10 @@ class CParser(Parser):
 if __name__ == '__main__':
     EBPoffsetTable = {}
     typeTable = {}
-    local_typeTable = {}
-    local_EBPoffsetTable = {}
+    local_typeTable = None
+    local_EBPoffsetTable = None
     counterEBP = -4
+    local_counterEBP = -4
     counterString = 0
     strings = []
     lexer = CLexer()
@@ -1125,13 +1157,13 @@ if __name__ == '__main__':
 
     text = open("Source11.c").read()
     tokenizedText = lexer.tokenize(text)
-    print("\n =========[ Lexer ] ===========")
-    for token in tokenizedText:
-        print("token:", token.type, ", lexvalue:", token.value)
+    # print("\n =========[ Lexer ] ===========")
+    # for token in tokenizedText:
+        # print("token:", token.type, ", lexvalue:", token.value)
 
     print("\n =========[ Parser ] ===========")
     try:
         parser.parse(lexer.tokenize(text))
         print("========== [ Fin ]===============")
     except RuntimeError as e:
-        print(bcolors.BOLD, bcolors.OKCYAN, e)
+        print(e)
