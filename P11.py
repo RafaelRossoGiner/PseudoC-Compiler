@@ -598,12 +598,32 @@ class NodeFunctionPrologue(Node):
         super().Write('pushl %ebp', "Function Prologue")
         super().Write('movl %esp, %ebp')
 
+        # Create local tables
+        global typeTable, local_EBPoffsetTable, local_typeTable
+        funcArgs = typeTable[name][1]
+
+        local_ParamEBP = 8
+        local_EBPoffsetTable = {}
+        for arg in reversed(funcArgs):
+            local_EBPoffsetTable[arg.idname] = local_ParamEBP
+            local_typeTable[arg.idname] = arg.nodeType
+            local_ParamEBP += 4
+
 
 class NodeFunctionEpilogue(Node):
     def __init__(self):
         super().Write('movl %ebp, %esp', "Function Epilogue")
         super().Write('popl %ebp')
         super().Write('ret\n')
+
+        # Reset local tables
+        global local_EBPoffsetTable, local_typeTable
+
+        local_EBPoffsetTable.clear()
+        local_typeTable.clear()
+
+        local_EBPoffsetTable = None
+        local_typeTable = None
 
 
 class NodeFunctionCall(Node):
@@ -805,10 +825,8 @@ class CParser(Parser):
     @_('type ID',
        'VOID ID')
     def param(self, p):
-        # Crear Node Param
-        node = NodeDeclarationAssign(p[1])
-        node.declare(p[0])
-        return node.nodeType
+        node = NodeDeclarationAssign(p[1], None, p[0])
+        return node
 
     @_('param "," params')
     def params(self, p):
@@ -822,7 +840,7 @@ class CParser(Parser):
     @_('type "," typeDec')
     def typeDec(self, p):
         p[2].append(p[0])
-        return p[2]  # La lista resultante está al revés0
+        return p[2]  # La lista resultante está al revés
 
     @_('type')
     def typeDec(self, p):
@@ -870,19 +888,29 @@ class CParser(Parser):
         return
 
     @_('type ID "(" params ")"',
-       'type ID "(" typeDec ")"',
-       'type ID "(" ")"')
+       'type ID "(" typeDec ")"')
     def functionDecl(self, p):
         global typeTable
         typeTable[p[1]] = [p[0], p[3]]
         return p[1]
 
+    @_( 'type ID "(" ")"')
+    def functionDecl(self, p):
+        global typeTable
+        typeTable[p[1]] = [p[0], None]
+        return p[1]
+
     @_('VOID ID "(" params ")"',
-       'VOID ID "(" typeDec ")"',
-       'VOID ID "(" ")"')
+       'VOID ID "(" typeDec ")"')
     def voidFunctionDecl(self, p):
         global typeTable
         typeTable[p[1]] = [p[0], p[3]]
+        return p[1]
+
+    @_('VOID ID "(" ")"')
+    def voidFunctionDecl(self, p):
+        global typeTable
+        typeTable[p[1]] = [p[0], None]
         return p[1]
 
     @_('functionDecl ";"',
@@ -901,14 +929,12 @@ class CParser(Parser):
     def functDefInit(self, p):
         self.functions[p[0]] = 0
         NodeFunctionPrologue(p[0])
-        # Añadir la declaracion de variables
         return 0
 
     @_('voidFunctionDecl "{"')
     def voidfunctDefInit(self, p):
         self.functions[p[0]] = 0
         NodeFunctionPrologue(p[0])
-        # Añadir la declaracion de variables
         return 0
 
     @_('functDefInit sentence retInstruction "}"')
