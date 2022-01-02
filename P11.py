@@ -664,10 +664,12 @@ class NodeFunctionEpilogue(Node):
 class NodeFunctionCall(Node):
     def __init__(self, name, argc, paramTypes):
 
+        global typeTable
         # Check only for functions that are not printf or scanf
         if name != 'printf' and name != 'scanf' and paramTypes is not None:
             argTypes = typeTable[name]
-            argTypes = argTypes[1]
+            self.nodeType = argTypes[0] # Get function return type
+            argTypes = argTypes[1] # Get parameters type list
             if len(argTypes) != argc:
                 NodeError("Invalid number of arguments")
             else:
