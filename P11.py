@@ -633,10 +633,12 @@ class NodeFunctionPrologue(Node):
 
         local_ParamEBP = 8
         local_EBPoffsetTable = {}
-        for arg in reversed(funcArgs):
-            local_EBPoffsetTable[arg.lval] = str(local_ParamEBP)
-            local_typeTable[arg.lval] = arg.nodeType
-            local_ParamEBP += 4
+        local_typeTable = {}
+        if funcArgs is not None:
+            for arg in reversed(funcArgs):
+                local_EBPoffsetTable[arg.lval] = str(local_ParamEBP)
+                local_typeTable[arg.lval] = arg.nodeType
+                local_ParamEBP += 4
 
 
 class NodeFunctionEpilogue(Node):
