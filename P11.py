@@ -1167,7 +1167,7 @@ if __name__ == '__main__':
     # for token in tokenizedText:
         # print("token:", token.type, ", lexvalue:", token.value)
 
-    print("\n =========[ Parser ] ===========")
+    print("\n =========[ Parser ] ============")
     try:
         parser.parse(lexer.tokenize(text))
         print("========== [ Fin ]===============")
