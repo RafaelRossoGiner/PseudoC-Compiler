@@ -666,16 +666,17 @@ class NodeFunctionCall(Node):
 
         global typeTable
         # Check only for functions that are not printf or scanf
-        if name != 'printf' and name != 'scanf' and paramTypes is not None:
+        if name != 'printf' and name != 'scanf':
             argTypes = typeTable[name]
             self.nodeType = argTypes[0] # Get function return type
-            argTypes = argTypes[1] # Get parameters type list
-            if len(argTypes) != argc:
-                NodeError("Invalid number of arguments")
-            else:
-                for arg in range(0, len(argTypes)):
-                    if not isinstance(argTypes[arg].nodeType, type(paramTypes[arg].nodeType)):
-                        NodeError("Unexpected types for arguments")
+            if paramTypes is not None:
+                argTypes = argTypes[1] # Get parameters type list
+                if len(argTypes) != argc:
+                    NodeError("Invalid number of arguments")
+                else:
+                    for arg in range(0, len(argTypes)):
+                        if not isinstance(argTypes[arg].nodeType, type(paramTypes[arg].nodeType)):
+                            NodeError("Unexpected types for arguments")
 
         super().Write('call ' + name)
         if argc > 0:

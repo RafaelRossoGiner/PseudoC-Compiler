@@ -55,5 +55,6 @@ int suma(){
 int a2[3];
 int *asterisco = &a;
 int *d[3];
+int multi[40][50][700];
 
-suma() + d[a2[2]];
+suma() + *d[a2[2]] + multi[0][0][0]; // Restricción: no se permite sumas de enteros y direcciones.
