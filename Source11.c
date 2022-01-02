@@ -1,22 +1,13 @@
 // Hola, comentario
-
-int a;
-
-noDeclarado = 7; // Da error
 /*
-Comentario de bloque
+
 */
+int a = 0;
 
-int suma(int x , int *y) {
-    int local; //local:-4
-    printf("ey %d", 3);
-    return x + *y;
+void voidfunction(int b, int c){
+
+    int a[3];
+
+    printf("esto es texto con valor: %d", b);
+
 }
-
-int global;
-
-int* a;
-
-int **b[3][5];
-int result = suma(*a, *b[2][3]);
-suma(result, &result);

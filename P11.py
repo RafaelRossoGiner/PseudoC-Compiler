@@ -196,10 +196,10 @@ class NodeDeclarationAssign(Node):
 
         # Obtain name and check table
         self.idname = self.lval
-        if self.idname in EBPoffsetTable:
-            NodeError("Symbol " + self.idname + " is already declared")
-        else:
-            if local_EBPoffsetTable is None:
+        if local_EBPoffsetTable is None:
+            if self.idname in EBPoffsetTable:
+                NodeError("Symbol " + self.idname + " is already declared")
+            else:
                 # Create table entries in Global Scope
                 typeTable[self.idname] = self.nodeType
                 EBPoffsetTable[self.idname] = str(counterEBP)
@@ -221,6 +221,9 @@ class NodeDeclarationAssign(Node):
 
                     super().Write("movl " + strOp1 + ", " + EBPoffsetTable[self.idname] + "(%ebp)",
                                   self.idname + " = assignment")
+        else:
+            if self.idname in local_EBPoffsetTable:
+                NodeError("Symbol " + self.idname + " is already declared")
             else:
                 # Create table entries in Local Scope
                 local_typeTable[self.idname] = self.nodeType
@@ -633,10 +636,12 @@ class NodeFunctionPrologue(Node):
 
         local_ParamEBP = 8
         local_EBPoffsetTable = {}
-        for arg in reversed(funcArgs):
-            local_EBPoffsetTable[arg.lval] = str(local_ParamEBP)
-            local_typeTable[arg.lval] = arg.nodeType
-            local_ParamEBP += 4
+        local_typeTable = {}
+        if funcArgs is not None:
+            for arg in reversed(funcArgs):
+                local_EBPoffsetTable[arg.lval] = str(local_ParamEBP)
+                local_typeTable[arg.lval] = arg.nodeType
+                local_ParamEBP += 4
 
 
 class NodeFunctionEpilogue(Node):
@@ -646,13 +651,14 @@ class NodeFunctionEpilogue(Node):
         super().Write('ret\n')
 
         # Reset local tables
-        global local_EBPoffsetTable, local_typeTable
+        global local_EBPoffsetTable, local_typeTable, local_counterEBP
 
         local_EBPoffsetTable.clear()
         local_typeTable.clear()
 
         local_EBPoffsetTable = None
         local_typeTable = None
+        local_counterEBP = -4
 
 
 class NodeFunctionCall(Node):
