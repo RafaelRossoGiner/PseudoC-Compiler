@@ -33,7 +33,7 @@ class CLexer(Lexer):
 
     @_(r'".*"')
     def STRING(self, t):
-        # Remove quotation marks.
+        # Remove quotation marks
         t.value = t.value[1:-1]
         return t
 
