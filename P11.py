@@ -106,7 +106,7 @@ class Node:
 class NodeError(Node):
     def __init__(self, msg, line=None):
         if line is not None:
-            raise RuntimeError(bcolors.BOLD + bcolors.OKGREEN + "Linea:" + str(line) + "->" + msg + bcolors.ENDC)
+            raise RuntimeError(bcolors.BOLD + bcolors.OKGREEN + "Line:" + str(line) + "->" + msg + bcolors.ENDC)
         else:
             raise RuntimeError(bcolors.BOLD + bcolors.OKGREEN + "->" + msg + bcolors.ENDC)
 
@@ -198,7 +198,7 @@ class NodeDeclarationAssign(Node):
         self.idname = self.lval
         if local_EBPoffsetTable is None:
             if self.idname in EBPoffsetTable:
-                NodeError("Symbol " + self.idname + " is already declared")
+                NodeError("Symbol " + self.idname + " is already declared!")
             else:
                 # Create table entries in Global Scope
                 typeTable[self.idname] = self.nodeType
@@ -207,7 +207,7 @@ class NodeDeclarationAssign(Node):
                 # Reserve space and update counter
                 counterEBP = counterEBP - varSize
                 super().Write("subl $" + str(varSize) + ", %esp",
-                              self.idname + " (offset=" + EBPoffsetTable[self.idname] + ")")
+                              "Reserve space for " + self.idname + " (offset=" + EBPoffsetTable[self.idname] + ")")
 
                 # Initialize if necessary
                 if self.rval is not None:
@@ -232,7 +232,7 @@ class NodeDeclarationAssign(Node):
                 # Reserve space and update counter
                 local_counterEBP = local_counterEBP - varSize
                 super().Write("subl $" + str(varSize) + ", %esp",
-                              self.idname + " (offset=" + local_EBPoffsetTable[self.idname] + ")")
+                              "Reserve space for " + self.idname + " (offset=" + local_EBPoffsetTable[self.idname] + ")")
 
                 # Initialize if necessary
                 if self.rval is not None:
@@ -253,7 +253,7 @@ class NodeAssign(Node):
         global EBPoffsetTable
         self.nodeType = idNode.nodeType
         if isinstance(idNode, NodeNum):
-            NodeError("Left member of assignment is not a valid Lval!", line)
+            NodeError("Left member of assignment is not a valid L-Value!", line)
         else:
             # Get Rval
             if isinstance(expr, NodeId):
@@ -272,7 +272,7 @@ class NodeAssign(Node):
             elif isinstance(idNode, NodeAssign):
                 self.lvalStr = idNode.lvalStr
             else:
-                super().Write("popl %ebx", "Pop lval value")
+                super().Write("popl %ebx", "Pop lval (address)")
                 self.lvalStr = "%ebx"
             super().Write("movl " + assignment + ", PTR [" + self.lvalStr + "]", "Assign rval to where lval points")
 
@@ -292,40 +292,40 @@ class NodeArithmBinOp(Node):
 
         # Operand 2
         if isinstance(p2, NodeId):
-            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", p2.val + " (offset=" + p2.val + ")")
+            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", "Operand " + p2.idname + " (offset=" + p2.val + ")")
             p2str = "%ebx"
         elif isinstance(p2, NodeNum):
             p2str = "$" + p2.val
         else:
-            super().Write("popl " + "%ebx", "Operand 2")
+            super().Write("popl " + "%ebx", "Pop second operand from stack")
             p2str = "%ebx"
 
         # Operand 1
         if isinstance(p1, NodeId):
-            super().Write("movl " + p1.val + "(%ebp)" + ", %eax", p1.val + " (offset=" + p1.val + ")")
+            super().Write("movl " + p1.val + "(%ebp)" + ", %eax", "Operand " + p1.idname + " (offset=" + p1.val + ")")
         elif isinstance(p1, NodeNum):
             super().Write("movl $" + p1.val + ", %eax")
         else:
-            super().Write("popl " + "%eax", "Operand 1")
+            super().Write("popl " + "%eax", "Pop first operand from stack")
 
         # Operation
         if op == '+':
             super().Write("addl " + p2str + ', %eax')
-            super().Write("pushl %eax", "Result add")
+            super().Write("pushl %eax", "Push addition result")
         elif op == '-':
             super().Write("subl " + p2str + ', %eax')
-            super().Write("pushl %eax", "Result sub")
+            super().Write("pushl %eax", "Push substraction result")
         elif op == '*':
             super().Write("imull " + p2str + ', %eax')
-            super().Write("pushl %eax", "Result mult")
+            super().Write("pushl %eax", "Push multiplication result")
         elif op == '/':
             super().Write("cdq")
             super().Write("idivl " + p2str)
-            super().Write("pushl %eax", "Result div")
+            super().Write("pushl %eax", "Push division result")
         elif op == '%':
             super().Write("cdq")
             super().Write("idivl " + p2str)
-            super().Write("pushl %ebx", "Result mod")
+            super().Write("pushl %ebx", "Push modulus result")
 
 
 class NodeRelationalBinOp(Node):
@@ -340,12 +340,12 @@ class NodeRelationalBinOp(Node):
 
         # Operand 2
         if isinstance(p2, NodeId):
-            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx")
+            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", "Operand " + p2.idname + " (offset=" + p2.val + ")")
             p2str = "%ebx"
         elif isinstance(p2, NodeNum):
             p2str = "$" + p2.val
         else:
-            super().Write("popl " + "%ebx")
+            super().Write("popl " + "%ebx", "Pop second operand")
             p2str = "%ebx"
 
         # Operand 1
@@ -354,12 +354,12 @@ class NodeRelationalBinOp(Node):
         elif isinstance(p1, NodeNum):
             p1str = "$" + p1.val
         else:
-            super().Write("popl " + "%eax")
+            super().Write("popl " + "%eax", "Pop first operand")
             p1str = "%eax"
 
         # Operation
-        super().Write("movl $1, %eax #assume true")
-        super().Write("cmp " + p1str + ", " + p2str)
+        super().Write("movl $1, %ecx", "Assume condition is true")
+        super().Write("cmp " + p1str + ", " + p2str, "Compare both Operands")
         if op == '>':
             super().Write("jg condTrue" + str(self.ID))
         elif op == '>=':
@@ -373,9 +373,9 @@ class NodeRelationalBinOp(Node):
         elif op == '!=':
             super().Write("jne condTrue" + str(self.ID))
 
-        super().Write("movl $0, %eax")
+        super().Write("movl $0, %ecx","Reached if condition is false, set result as false")
         super().WriteLabel("condTrue" + str(self.ID))
-        super().Write("pushl %eax")
+        super().Write("pushl %ecx", "Push result")
 
 
 class NodeLogical(Node):
@@ -387,43 +387,43 @@ class NodeLogical(Node):
     def firstOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.val + "(%ebp)" + ", %eax")
+            super().Write("movl " + p.val + "(%ebp)" + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
             operand = "%eax"
         elif isinstance(p, NodeNum):
             operand = "$" + p.val
         else:
-            super().Write("popl " + "%eax")
+            super().Write("popl " + "%eax", "(" + self.op + " operator) Pop first operand")
             operand = "%eax"
 
-        super().Write("cmpl " + "$0, " + operand, "check if op1 is false")
+        super().Write("cmpl " + "$0, " + operand, "check if first operand is false")
         if self.op == '&&':
-            super().Write("pushl $0", "assume result is False")
-            super().Write("je shortcut" + str(self.ID), "if op1 is false, don't check op2")
+            super().Write("pushl $0", "assume first operand is false")
+            super().Write("je shortcut" + str(self.ID), "if first operand is false, jump to end")
         elif self.op == '||':
-            super().Write("pushl $1", "assume result is True")
-            super().Write("jne shortcut" + str(self.ID), "if op1 is true, don't check op2")
+            super().Write("pushl $1", "assume first operand is true")
+            super().Write("jne shortcut" + str(self.ID), "if first operand is true, jump to end")
 
     def secondOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.val + "(%ebp)" + ", %eax")
+            super().Write("movl " + p.val + "(%ebp)" + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
             operand = "%eax"
         elif isinstance(p, NodeNum):
             operand = "$" + p.val
         else:
-            super().Write("popl " + "%eax")
+            super().Write("popl " + "%eax", "(" + self.op + " operator) Pop second operand")
             operand = "%eax"
 
-        super().Write("cmpl " + "$0, " + operand, "check if op2 is false")
+        super().Write("cmpl " + "$0, " + operand, "check if second operand is false")
         if self.op == '&&':
-            super().Write("movl $0, %eax", "assume result is False")
-            super().Write("je shortcut" + str(self.ID), "if op2 is False, jump")
-            super().Write("movl $1, %eax", "negate assumption")
+            super().Write("movl $0, %eax", "assume operator && result is False")
+            super().Write("je shortcut" + str(self.ID), "if second operand is False, jump")
+            super().Write("movl $1, %eax", "else, negate assumption")
         elif self.op == '||':
-            super().Write("movl $1, %eax", "assume result is True")
-            super().Write("jne shortcut" + str(self.ID), "if op2 is True, jump")
-            super().Write("movl $0, %eax", "negate assumption")
-        super().Write("popl %ebx", "Remove result of op1")
+            super().Write("movl $1, %eax", "assume operator || result is True")
+            super().Write("jne shortcut" + str(self.ID), "if second operand is True, jump")
+            super().Write("movl $0, %eax", "else, negate assumption")
+        super().Write("popl %ebx", "Remove result of first operand")
         super().Write("pushl %eax", "Push final operator result")
         super().WriteLabel("shortcut" + str(self.ID))
 
@@ -438,19 +438,19 @@ class NodeUnaryOp(Node):
             self.nodeType = p1.nodeType
             # Operand
             if isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp)" + ", %eax", p1.val + "(%ebp) is " + p1.idname)
+                super().Write("movl " + p1.val + "(%ebp)" + ", %eax", "(! operator) " + p1.val + " (%ebp) is " + p1.idname)
             elif isinstance(p1, NodeNum):
                 super().Write("movl $" + p1.val + ", %eax")
             else:
-                super().Write("popl " + "%eax")
+                super().Write("popl " + "%eax", "(! operator) Pop unary operand")
 
             super().Write("cmp $0, %eax", "Check if operand is false")
             super().Write("movl $1, %eax", "Set as true (negation)")
             labelID = str(newLabelID())
             super().Write("je " + "negFinal" + labelID, "Jump if false")
-            super().Write("movl $0, %eax", "Set as false (negate)")
+            super().Write("movl $0, %eax", "Set as false (negation)")
             super().WriteLabel("negFinal" + labelID)
-            super().Write("puslh %eax", "Store result")
+            super().Write("puslh %eax", "Push result")
 
         elif op == '-':
             if not isinstance(p1.nodeType, NodeInt):
@@ -460,11 +460,11 @@ class NodeUnaryOp(Node):
 
             # Operand
             if isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp)" + ", %eax")
+                super().Write("movl " + p1.val + "(%ebp)" + ", %eax", "(Unary -) " + p1.val + " (%ebp) is " + p1.idname)
             elif isinstance(p1, NodeNum):
                 super().Write("movl $" + p1.val + ", %eax")
             else:
-                super().Write("popl " + "%eax")
+                super().Write("popl " + "%eax", "(! operator) Pop unary operand")
 
             super().Write("imul $-1")
             super().Write("pushl %eax")
@@ -481,32 +481,32 @@ class NodeUnaryRefs(Node):
         if op == '&':
             if isinstance(p1, NodeId):
                 self.nodeType = NodePointer(p1.nodeType)
-                super().Write("movl " + p1.val + "(%ebp), %eax", "%eax is " + p1.idname)
+                super().Write("movl " + p1.val + "(%ebp), %eax", "(& Operator) %eax is " + p1.idname)
             elif isinstance(p1, NodeNum):
                 NodeError("Reference '&' operator can only be applied to variable identifers")
             else:
-                super().Write("popl %eax")
-            super().Write("leal %eax, %eax")
-            super().Write("pushl %eax")
+                super().Write("popl %eax", "(& Operator) Pop unary operand")
+            super().Write("leal %eax, %eax", "Obtain operand's effective address")
+            super().Write("pushl %eax","Push result")
 
         elif op == '*':
             if not isinstance(p1.nodeType, NodePointer):
-                NodeError("Operand is not an address!", line)
+                NodeError("Operand is not a pointer!", line)
             else:
                 self.nodeType = p1.nodeType.refNode
 
             if isinstance(p1, NodeNum):
-                super().Write("movl PTR [$" + p1.val + "], %eax")
+                NodeError("Operand is not a pointer!", line)
             elif isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp), %eax")
+                super().Write("movl " + p1.val + "(%ebp), %eax", "(* Operator) %eax is " + p1.idname)
             else:
-                super().Write("popl %eax")
+                super().Write("popl %eax", "(* Operator) Pop unary operand")
             super().Write("movl PTR [%eax], %eax", "Dereference pointer")
-            super().Write("pushl %eax")
+            super().Write("pushl %eax", "Push result")
 
         elif op == '[]':
             if not isinstance(p1.nodeType, NodePointer):
-                NodeError("Is not an address!", line)
+                NodeError("Is not a pointer!", line)
             else:
                 self.nodeType = p1.nodeType.refNode
 
@@ -516,22 +516,22 @@ class NodeUnaryRefs(Node):
             elif isinstance(offsetExpr, NodeId):
                 offset = offsetExpr.val + "(%ebp)"
             else:
-                super().Write("popl %eax")
+                super().Write("popl %eax", "([] Operator) Pop offset literal")
                 offset = "%eax"
             super().Write("imul $" + str(p1.nodeType.size) + ", " + offset, "Calculate Offset")
             super().Write("movl %eax, %ebx", "Store Offset in ebx")
 
             # De-rerference pointer
             if isinstance(p1, NodeNum):
-                super().Write("movl PTR [$" + p1.val + "], %eax")
+                NodeError("Operand is not a pointer!", line)
             elif isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp), %eax")
+                super().Write("movl " + p1.val + "(%ebp), %eax", "([] Operator) %eax is " + p1.idname)
             else:
-                super().Write("popl %eax")
+                super().Write("popl %eax","([] Operator) Pop unary operand")
 
             super().Write("subl %ebx", "Address = Pointer + Offset")
             super().Write("movl PTR [%eax], %eax", "Dereference Address")
-            super().Write("pushl %eax", "Store value")
+            super().Write("pushl %eax", "Push result")
         else:
             raise RuntimeError('Invalid operation')
 
@@ -957,10 +957,10 @@ class CParser(Parser):
        'voidFunctionDecl ";"')
     def instruction(self, p):
         if p[0] in self.functions:
-            raise RuntimeError('line ' + str(p.lineno) + ': Redeclaration of function ' + p[0] + ' is not allowed')
+            NodeError('Redeclaration of function ' + p[0] + ' is not allowed', p.lineno)
         else:
             if p[0] in EBPoffsetTable:
-                raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is already declared as a variable')
+                NodeError(p[0] + ' is already declared as a variable', p.lineno)
             else:
                 self.functions[p[0]] = 0
         return 0
@@ -1071,10 +1071,6 @@ class CParser(Parser):
 
     @_('"&" unary')
     def unary(self, p):
-        # Esto no habría que ponerlo en un AST porque es una
-        # diferenciación de tipos debida a nuestra implementación,
-        # no a la gramática que estamos implementando ni a ninguna
-        # operación relacionada con ella de forma teórica o conceptual.
         return NodeUnaryRefs(p[1], '&', p.lineno)
 
     @_('postfix "[" expr "]"')
