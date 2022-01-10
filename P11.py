@@ -546,7 +546,7 @@ class NodeUnaryRefs(Node):
             super().Write("imul $" + str(p1.nodeType.size) + ", " + offset, "Calculate Offset")
             super().Write("movl %eax, %ebx", "Store Offset in ebx")
 
-            # De-rerference pointer
+            # Obtain base address
             if isinstance(p1, NodeNum):
                 NodeError("Operand is not a pointer!", line)
             elif isinstance(p1, NodeId):
@@ -554,7 +554,7 @@ class NodeUnaryRefs(Node):
             else:
                 super().Write("popl %eax","([] Operator) Pop unary operand")
 
-            super().Write("subl %ebx", "Address = Pointer + Offset")
+            super().Write("addl %ebx", "Address = Pointer + Offset")
             super().Write("movl PTR [%eax], %eax", "Dereference Address")
             super().Write("pushl %eax", "Push result")
         else:
