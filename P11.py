@@ -609,9 +609,15 @@ class NodeIf(Node):
     def __init__(self, ID):
         self.ID = ID
 
-    def compare(self):
-        super().Write('popl %eax')
-        super().Write('cmpl $0, %eax')
+    def compare(self, expr):
+        if isinstance(expr, NodeId):
+            super().Write("movl " + expr.val + "(%ebp)" + ", %eax", "Condition " + expr.idname + " (offset=" + expr.val + ")")
+        elif isinstance(expr, NodeNum):
+            super().Write("movl $" + expr.val + ", %eax", "Condition = " + expr.val)
+        else:
+            super().Write('popl %eax', "Pop condition value")
+
+        super().Write('cmpl $0, %eax', "Compare IF condition")
         super().Write('je false' + str(self.ID))
 
     def finalJump(self):
@@ -631,9 +637,16 @@ class NodeWhile(Node):
     def startLabel(self):
         super().WriteLabel('start' + str(self.ID))
 
-    def compare(self):
-        super().Write('popl %eax')
-        super().Write('cmpl $0, %eax')
+    def compare(self, expr):
+        if isinstance(expr, NodeId):
+            super().Write("movl " + expr.val + "(%ebp)" + ", %eax",
+                          "Condition " + expr.idname + " (offset=" + expr.val + ")")
+        elif isinstance(expr, NodeNum):
+            super().Write("movl $" + expr.val + ", %eax", "Condition = " + expr.val)
+        else:
+            super().Write('popl %eax', "Pop condition value")
+
+        super().Write('cmpl $0, %eax', "Compare WHILE condition")
         super().Write('jne final' + str(self.ID))
 
     def jumpStart(self):
@@ -830,7 +843,7 @@ class CParser(Parser):
     def IFcondition(self, p):
         ID = newLabelID()
         node = NodeIf(ID)
-        node.compare()
+        node.compare(p.expr)
         return node
 
     @_('WHILEcondition "{" sentence "}"')
