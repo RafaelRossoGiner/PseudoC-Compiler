@@ -574,9 +574,6 @@ class NodePrint(Node):
             # Check number of specifiers and number of values
             if len(values) != string.count('%d'):
                 NodeError('Number of parameters is different from the number of specifiers', line)
-            else:
-                for val in values:
-                    string = string.replace('%d', str(val), 1)
         else:
             if string.count('%d') > 0:
                 NodeError('Number of parameters is different from the number of specifiers', line)
