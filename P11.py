@@ -552,7 +552,7 @@ class NodeUnaryRefs(Node):
             elif isinstance(p1, NodeId):
                 super().Write("movl " + p1.val + "(%ebp), %eax", "([] Operator) %eax = " + p1.idname)
             else:
-                super().Write("popl %eax","([] Operator) Pop unary operand")
+                super().Write("popl %eax", "([] Operator) Pop unary operand")
 
             super().Write("addl %ebx", "Address = Pointer + Offset")
             super().Write("movl PTR [%eax], %eax", "Dereference Address")
@@ -1032,6 +1032,7 @@ class CParser(Parser):
         p[0].secondOperand(p[1])
         return p[0]
 
+    # Relational Operations
     @_('comparison EQUAL relation')
     def comparison(self, p):
         return NodeRelationalBinOp(p[0], p[2], '==', p.lineno)
