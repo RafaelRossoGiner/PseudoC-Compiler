@@ -98,6 +98,8 @@ class Node:
     def WriteStrings():
         global EBPoffsetTable
         contador = 0
+        if not ("main" in typeTable.keys()):
+            NodeError("main function is missing!")
         for string in strings:
             Node.WriteLabel(".s" + str(contador))
             Node.Write(string)
