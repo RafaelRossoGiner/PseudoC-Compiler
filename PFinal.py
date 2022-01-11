@@ -95,19 +95,34 @@ class Node:
             output.write(label + ':\n')
 
     @staticmethod
+    def WriteGlobalVar(var, tam, wsize):
+        with open(Node.outputFilename, 'a') as output:
+            output.write(".comm " + var + ", " + str(tam) + ", " + str(wsize) + '\n')
+
+    @staticmethod
     def WriteStrings():
         global EBPoffsetTable
-        contador = 0
+
         if not ("main" in typeTable.keys()):
-            NodeError("main function is missing!")
-        for string in strings:
-            Node.WriteLabel(".s" + str(contador))
-            Node.Write(string)
-            contador += 1
-        for globalVar in EBPoffsetTable.keys():
-            Node.WriteLabel(globalVar)
+            NodeError("main function not found!")
+        else:
+            with open(Node.outputFilename, 'r') as output:
+                auxiliar = output.read()
+                open(Node.outputFilename, 'w')
 
+            Node.Write('.file "' + Node.outputFilename + '"')
+            contador = 0
+            if not ("main" in typeTable.keys()):
+                NodeError("main function is missing!")
+            for string in strings:
+                Node.WriteLabel(".s" + str(contador))
+                Node.Write('.string "' + string + '"')
+                contador += 1
+            for globalVar in EBPoffsetTable.keys():
+                Node.WriteGlobalVar(globalVar, typeTable[globalVar].size, 4)
 
+            with open(Node.outputFilename, 'a') as output:
+                output.write(auxiliar)
 
 class NodeError(Node):
     def __init__(self, msg, line=None):
@@ -131,6 +146,9 @@ class NodeId(Node):
             if self.idname in local_EBPoffsetTable:
                 self.val = EBPoffsetTable[self.idname] + "(%ebp)"
                 self.nodeType = local_typeTable[self.idname]
+            elif self.idname in EBPoffsetTable:
+                self.val = "$" + self.idname
+                self.nodeType = typeTable[self.idname]
         elif self.idname in EBPoffsetTable:
             self.val = "$" + self.idname
             self.nodeType = typeTable[self.idname]
@@ -174,7 +192,7 @@ class NodeDeclarationAssign(Node):
     def __init__(self, elmNode, expr=None, givenType=None):
         self.rval = expr
         self.lval = elmNode
-        self.idname = None # Eliminar
+        self.idname = None  # Eliminar
         self.nodeType = givenType
 
     def declare(self, line, givenType=None):
@@ -236,7 +254,8 @@ class NodeDeclarationAssign(Node):
                 # Reserve space and update counter
                 local_counterEBP = local_counterEBP - varSize
                 super().Write("subl $" + str(varSize) + ", %esp",
-                              "Reserve space for " + self.idname + " (offset=" + local_EBPoffsetTable[self.idname] + ")")
+                              "Reserve space for " + self.idname + " (offset=" + local_EBPoffsetTable[
+                                  self.idname] + ")")
 
                 # Initialize if necessary
                 if self.rval is not None:
@@ -402,7 +421,7 @@ class NodeRelationalBinOp(Node):
         elif op == '!=':
             super().Write("jne condTrue" + str(self.ID))
 
-        super().Write("movl $0, %ecx","Reached if condition is false, set result as false")
+        super().Write("movl $0, %ecx", "Reached if condition is false, set result as false")
         super().WriteLabel("condTrue" + str(self.ID))
         super().Write("pushl %ecx", "Push result")
 
@@ -416,7 +435,8 @@ class NodeLogical(Node):
     def firstOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.val + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
+            super().Write("movl " + p.val + ", %eax",
+                          "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
             operand = "%eax"
         elif isinstance(p, NodeNum):
             operand = "$" + p.val
@@ -435,7 +455,8 @@ class NodeLogical(Node):
     def secondOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.val + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
+            super().Write("movl " + p.val + ", %eax",
+                          "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
             operand = "%eax"
         elif isinstance(p, NodeNum):
             operand = "$" + p.val
@@ -516,7 +537,7 @@ class NodeUnaryRefs(Node):
             else:
                 super().Write("popl %eax", "(& Operator) Pop unary operand")
             super().Write("leal %eax, %eax", "Obtain operand's effective address")
-            super().Write("pushl %eax","Push result")
+            super().Write("pushl %eax", "Push result")
 
         elif op == '*':
             if not isinstance(p1.nodeType, NodePointer):
@@ -707,9 +728,9 @@ class NodeFunctionCall(Node):
         # Check only for functions that are not printf or scanf
         if name != 'printf' and name != 'scanf':
             argTypes = typeTable[name]
-            self.nodeType = argTypes[0] # Get function return type
+            self.nodeType = argTypes[0]  # Get function return type
             if paramTypes is not None:
-                argTypes = argTypes[1] # Get parameters type list
+                argTypes = argTypes[1]  # Get parameters type list
                 if argTypes is None or len(argTypes) != argc:
                     NodeError("Invalid number of arguments", line)
                 else:
@@ -733,7 +754,7 @@ class NodeFunctionParam(Node):
         elif isinstance(arg, NodeNum):  # literal
             super().Write('pushl $' + arg.val)
         elif isinstance(arg, NodeId):  # literal
-            super().Write('pushl ' + arg.val + '%(ebp)')
+            super().Write('pushl ' + arg.val)
         elif isinstance(arg, NodeFunctionCall) or isinstance(arg, NodeUnaryOp) or isinstance(arg,
                                                                                              NodeArithmBinOp):  # resultado de función o expresión
             pass
@@ -975,7 +996,7 @@ class CParser(Parser):
         typeTable[p[1]] = [p[0], p[3]]
         return p[1]
 
-    @_( 'type ID "(" ")"')
+    @_('type ID "(" ")"')
     def functionDecl(self, p):
         global typeTable
         typeTable[p[1]] = [p[0], None]
@@ -1206,7 +1227,7 @@ if __name__ == '__main__':
     tokenizedText = lexer.tokenize(text)
     # print("\n =========[ Lexer ] ===========")
     # for token in tokenizedText:
-        # print("token:", token.type, ", lexvalue:", token.value)
+    # print("token:", token.type, ", lexvalue:", token.value)
 
     print("\n =========[ Parser ] ============")
     try:

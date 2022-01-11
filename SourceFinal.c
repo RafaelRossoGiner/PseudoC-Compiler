@@ -1,5 +1,9 @@
 int a;
 
-printf("Hola");
-scanf("%d",a);
+int main(){
+    printf("Hola");
+    scanf("%d", a);
+    return 0;
+}
+
 
