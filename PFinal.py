@@ -96,11 +96,15 @@ class Node:
 
     @staticmethod
     def WriteStrings():
+        global EBPoffsetTable
         contador = 0
         for string in strings:
             Node.WriteLabel(".s" + str(contador))
             Node.Write(string)
             contador += 1
+        for globalVar in EBPoffsetTable.keys():
+            Node.WriteLabel(globalVar)
+
 
 
 class NodeError(Node):
@@ -123,10 +127,10 @@ class NodeId(Node):
         self.idname = idname
         if local_EBPoffsetTable is not None:
             if self.idname in local_EBPoffsetTable:
-                self.val = local_EBPoffsetTable[self.idname]
+                self.val = EBPoffsetTable[self.idname] + "(%ebp)"
                 self.nodeType = local_typeTable[self.idname]
         elif self.idname in EBPoffsetTable:
-            self.val = EBPoffsetTable[self.idname]
+            self.val = "$" + self.idname
             self.nodeType = typeTable[self.idname]
         else:
             NodeError("Symbol " + self.idname + " is not declared!", line)
@@ -205,11 +209,6 @@ class NodeDeclarationAssign(Node):
                 typeTable[self.idname] = self.nodeType
                 EBPoffsetTable[self.idname] = str(counterEBP)
 
-                # Reserve space and update counter
-                counterEBP = counterEBP - varSize
-                super().Write("subl $" + str(varSize) + ", %esp",
-                              "Reserve space for " + self.idname + " (offset=" + EBPoffsetTable[self.idname] + ")")
-
                 # Initialize if necessary
                 if self.rval is not None:
                     if isinstance(self.rval, NodeId):
@@ -222,7 +221,7 @@ class NodeDeclarationAssign(Node):
                         super().Write("popl %eax", "Pop assignment value")
                         strOp1 = "%eax"
 
-                    super().Write("movl " + strOp1 + ", " + EBPoffsetTable[self.idname] + "(%ebp)",
+                    super().Write("movl " + strOp1 + ", $" + self.idname,
                                   self.idname + " = assignment")
         else:
             if self.idname in local_EBPoffsetTable:
@@ -265,7 +264,7 @@ class NodeAssign(Node):
             else:
                 # Get Rval
                 if isinstance(expr, NodeId):
-                    assignment = expr.val + "(%ebp)"
+                    assignment = expr.val
                 elif isinstance(expr, NodeNum):
                     assignment = "$" + expr.val
                 elif isinstance(expr, NodeAssign):
@@ -277,7 +276,7 @@ class NodeAssign(Node):
                 # Get Lval
                 if local_EBPoffsetTable is None:
                     if isinstance(lval, NodeId):
-                        self.lvalStr = lval.val + "(%ebp)"
+                        self.lvalStr = lval.val
                         super().Write("movl " + assignment + ", " + self.lvalStr,
                                       lval.idname + " = assignment")
                     elif isinstance(lval, NodeAssign):
@@ -291,7 +290,7 @@ class NodeAssign(Node):
                                       "Assign rval to where lval points")
                 else:
                     if isinstance(lval, NodeId):
-                        self.lvalStr = lval.val + "(%ebp)"
+                        self.lvalStr = lval.val
                         super().Write("movl " + assignment + ", " + self.lvalStr,
                                       lval.idname + " = assignment")
                     elif isinstance(lval, NodeAssign):
@@ -320,7 +319,7 @@ class NodeArithmBinOp(Node):
 
         # Operand 2
         if isinstance(p2, NodeId):
-            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", "Operand " + p2.idname + " (offset=" + p2.val + ")")
+            super().Write("movl " + p2.val + ", %ebx", "Operand " + p2.idname + " (offset=" + p2.val + ")")
             p2str = "%ebx"
         elif isinstance(p2, NodeNum):
             p2str = "$" + p2.val
@@ -330,7 +329,7 @@ class NodeArithmBinOp(Node):
 
         # Operand 1
         if isinstance(p1, NodeId):
-            super().Write("movl " + p1.val + "(%ebp)" + ", %eax", "Operand " + p1.idname + " (offset=" + p1.val + ")")
+            super().Write("movl " + p1.val + ", %eax", "Operand " + p1.idname + " (offset=" + p1.val + ")")
         elif isinstance(p1, NodeNum):
             super().Write("movl $" + p1.val + ", %eax")
         else:
@@ -368,7 +367,7 @@ class NodeRelationalBinOp(Node):
 
         # Operand 2
         if isinstance(p2, NodeId):
-            super().Write("movl " + p2.val + "(%ebp)" + ", %ebx", "Operand " + p2.idname + " (offset=" + p2.val + ")")
+            super().Write("movl " + p2.val + ", %ebx", "Operand " + p2.idname + " (offset=" + p2.val + ")")
             p2str = "%ebx"
         elif isinstance(p2, NodeNum):
             p2str = "$" + p2.val
@@ -378,7 +377,7 @@ class NodeRelationalBinOp(Node):
 
         # Operand 1
         if isinstance(p1, NodeId):
-            p1str = p1.val + "(%ebp)"
+            p1str = p1.val
         elif isinstance(p1, NodeNum):
             p1str = "$" + p1.val
         else:
@@ -415,7 +414,7 @@ class NodeLogical(Node):
     def firstOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.val + "(%ebp)" + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
+            super().Write("movl " + p.val + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
             operand = "%eax"
         elif isinstance(p, NodeNum):
             operand = "$" + p.val
@@ -434,7 +433,7 @@ class NodeLogical(Node):
     def secondOperand(self, p):
         self.nodeType = p.nodeType
         if isinstance(p, NodeId):
-            super().Write("movl " + p.val + "(%ebp)" + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
+            super().Write("movl " + p.val + ", %eax", "(" + self.op + " operator) Operand " + p.idname + " (offset=" + p.val + ")")
             operand = "%eax"
         elif isinstance(p, NodeNum):
             operand = "$" + p.val
@@ -466,7 +465,7 @@ class NodeUnaryOp(Node):
             self.nodeType = p1.nodeType
             # Operand
             if isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp)" + ", %eax", "(! operator) " + p1.val + " (%ebp) = " + p1.idname)
+                super().Write("movl " + p1.val + ", %eax", "(! operator) " + p1.val + " = " + p1.idname)
             elif isinstance(p1, NodeNum):
                 super().Write("movl $" + p1.val + ", %eax")
             else:
@@ -488,7 +487,7 @@ class NodeUnaryOp(Node):
 
             # Operand
             if isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp)" + ", %eax", "(Unary -) " + p1.val + " (%ebp) = " + p1.idname)
+                super().Write("movl " + p1.val + ", %eax", "(Unary -) " + p1.val + " = " + p1.idname)
             elif isinstance(p1, NodeNum):
                 super().Write("movl $" + p1.val + ", %eax")
             else:
@@ -509,7 +508,7 @@ class NodeUnaryRefs(Node):
         if op == '&':
             if isinstance(p1, NodeId):
                 self.nodeType = NodePointer(p1.nodeType)
-                super().Write("movl " + p1.val + "(%ebp), %eax", "(& Operator) %eax = " + p1.idname)
+                super().Write("movl " + p1.val + ", %eax", "(& Operator) %eax = " + p1.idname)
             elif isinstance(p1, NodeNum):
                 NodeError("Reference '&' operator can only be applied to variable identifers", line)
             else:
@@ -526,7 +525,7 @@ class NodeUnaryRefs(Node):
             if isinstance(p1, NodeNum):
                 NodeError("Operand is not a pointer!", line)
             elif isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp), %eax", "(* Operator) %eax = " + p1.idname)
+                super().Write("movl " + p1.val + ", %eax", "(* Operator) %eax = " + p1.idname)
             else:
                 super().Write("popl %eax", "(* Operator) Pop unary operand")
             super().Write("movl PTR [%eax], %eax", "Dereference pointer")
@@ -542,7 +541,7 @@ class NodeUnaryRefs(Node):
             if isinstance(offsetExpr, NodeNum):
                 offset = "$" + offsetExpr.val
             elif isinstance(offsetExpr, NodeId):
-                offset = offsetExpr.val + "(%ebp)"
+                offset = offsetExpr.val
             else:
                 super().Write("popl %eax", "([] Operator) Pop offset literal")
                 offset = "%eax"
@@ -553,7 +552,7 @@ class NodeUnaryRefs(Node):
             if isinstance(p1, NodeNum):
                 NodeError("Operand is not a pointer!", line)
             elif isinstance(p1, NodeId):
-                super().Write("movl " + p1.val + "(%ebp), %eax", "([] Operator) %eax = " + p1.idname)
+                super().Write("movl " + p1.val + ", %eax", "([] Operator) %eax = " + p1.idname)
             else:
                 super().Write("popl %eax", "([] Operator) Pop unary operand")
 
@@ -614,7 +613,7 @@ class NodeIf(Node):
 
     def compare(self, expr):
         if isinstance(expr, NodeId):
-            super().Write("movl " + expr.val + "(%ebp)" + ", %eax", "Condition " + expr.idname + " (offset=" + expr.val + ")")
+            super().Write("movl " + expr.val + ", %eax", "Condition " + expr.idname + " (offset=" + expr.val + ")")
         elif isinstance(expr, NodeNum):
             super().Write("movl $" + expr.val + ", %eax", "Condition = " + expr.val)
         else:
@@ -642,7 +641,7 @@ class NodeWhile(Node):
 
     def compare(self, expr):
         if isinstance(expr, NodeId):
-            super().Write("movl " + expr.val + "(%ebp)" + ", %eax",
+            super().Write("movl " + expr.val + ", %eax",
                           "Condition " + expr.idname + " (offset=" + expr.val + ")")
         elif isinstance(expr, NodeNum):
             super().Write("movl $" + expr.val + ", %eax", "Condition = " + expr.val)
@@ -743,7 +742,7 @@ class NodeFunctionParam(Node):
 class NodeReturn(Node):
     def __init__(self, exprNode):
         if isinstance(exprNode, NodeId):
-            super().Write("movl " + exprNode.val + "(%ebp), %eax", "Move return value")
+            super().Write("movl " + exprNode.val + ", %eax", "Move return value")
         elif isinstance(exprNode, NodeNum):
             super().Write("movl $" + exprNode.val + ", %eax", "Move return value")
         else:
@@ -1198,10 +1197,10 @@ if __name__ == '__main__':
     strings = []
     lexer = CLexer()
     parser = CParser()
-    Node.outputFilename = "Output11.s"
+    Node.outputFilename = "OutputFinal.s"
     open(Node.outputFilename, 'w').close()
 
-    text = open("Source11.c").read()
+    text = open("SourceFinal.c").read()
     tokenizedText = lexer.tokenize(text)
     # print("\n =========[ Lexer ] ===========")
     # for token in tokenizedText:

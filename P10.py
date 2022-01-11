@@ -686,7 +686,7 @@ class CParser(Parser):
     @_('type declList ";"')
     def instruction(self, p):
         for node in reversed(p[1]):
-            node.declare(p[0])
+            node.declare(p[0], p.lineno)
 
     @_('assignment ";"')
     def instruction(self, p):
