@@ -2,7 +2,7 @@ from sly import Lexer
 from sly import Parser
 import re
 
-global GlobalVarSize, typeTable, counterEBP, counterString
+global GlobalVarSize, typeTable, counterString
 global local_EBPoffsetTable, local_typeTable, local_counterEBP
 
 
@@ -108,9 +108,9 @@ class Node:
         else:
             with open(Node.outputFilename, 'r') as output:
                 auxiliar = output.read()
-                open(Node.outputFilename, 'w')
+                with open(Node.outputFilename, 'w') as outputNew:
+                    outputNew.write('.file "' + Node.outputFilename + '"\n')
 
-            Node.Write('.file "' + Node.outputFilename + '"')
             contador = 0
             if not ("main" in typeTable.keys()):
                 NodeError("main function is missing!")
@@ -204,7 +204,7 @@ class NodeDeclarationAssign(Node):
         self.nodeType = givenType
 
     def declare(self, line, givenType=None):
-        global GlobalVarSize, counterEBP, typeTable
+        global GlobalVarSize, typeTabl
         global local_EBPoffsetTable, local_counterEBP, local_typeTable
         # Obtain type and its size
         if givenType is not None:
@@ -320,8 +320,8 @@ class NodeAssign(Node):
                         super().Write("movl " + assignment + ", " + self.lvalStr,
                                       self.lvalStr + " = assignment")
                     else:
-                        super().Write("popl %ebx", "Pop lval (address)")
-                        self.lvalStr = "%ebx"
+                        super().Write("popl %eax", "Pop lval (address)")
+                        self.lvalStr = "%edx"
                         super().Write("movl " + assignment + ", PTR [" + self.lvalStr + "]",
                                       "Assign rval to where lval points")
                 else:
@@ -334,8 +334,8 @@ class NodeAssign(Node):
                         super().Write("movl " + assignment + ", " + self.lvalStr,
                                       self.lvalStr + " = assignment")
                     else:
-                        super().Write("popl %ebx", "Pop lval (address)")
-                        self.lvalStr = "%ebx"
+                        super().Write("popl %eax", "Pop lval (address)")
+                        self.lvalStr = "%edx"
                         super().Write("movl " + assignment + ", PTR [" + self.lvalStr + "]",
                                       "Assign rval to where lval points")
 
@@ -566,6 +566,7 @@ class NodeUnaryRefs(Node):
                 super().Write("movl " + p1.val + ", %eax", "(* Operator) %eax = " + p1.idname)
             else:
                 super().Write("popl %eax", "(* Operator) Pop unary operand")
+            super().Write("movl %eax, %edx", "Save pointer for possible l-value assignation")
             super().Write("movl PTR [%eax], %eax", "Dereference pointer")
             super().Write("pushl %eax", "Push result")
 
@@ -595,6 +596,7 @@ class NodeUnaryRefs(Node):
                 super().Write("popl %eax", "([] Operator) Pop unary operand")
 
             super().Write("addl %ebx", "Address = Pointer + Offset")
+            super().Write("movl %eax, %edx", "Save pointer for possible l-value assignation")
             super().Write("movl PTR [%eax], %eax", "Dereference Address")
             super().Write("pushl %eax", "Push result")
         else:
@@ -977,7 +979,7 @@ class CParser(Parser):
     @_('expr "," scanfParams')
     def scanfParams(self, p):
         NodeFunctionParam(p[0])
-        p[2].append(p.address)
+        p[2].append(p.scanfParams)
         return p[2]
 
     @_('expr')
@@ -1229,16 +1231,15 @@ if __name__ == '__main__':
     typeTable = {}
     local_typeTable = None
     local_EBPoffsetTable = None
-    counterEBP = -4
     local_counterEBP = -4
     counterString = 0
     strings = []
     lexer = CLexer()
     parser = CParser()
-    Node.outputFilename = "OutputFinal.s"
+    Node.outputFilename = "OutputEntrega.s"
     open(Node.outputFilename, 'w').close()
 
-    text = open("SourceFinal.c").read()
+    text = open("SourceEntrega.c").read()
     tokenizedText = lexer.tokenize(text)
     # print("\n =========[ Lexer ] ===========")
     # for token in tokenizedText:
