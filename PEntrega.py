@@ -459,7 +459,7 @@ class NodeLogical(Node):
             super().Write("popl " + "%eax", "(" + self.op + " operator) Pop first operand")
             operand = "%eax"
 
-        super().Write("cmpl " + "$0, " + operand, "check if first operand is false")
+        super().Write("cmp " + "$0, " + operand, "check if first operand is false")
         if self.op == '&&':
             super().Write("pushl $0", "assume first operand is false")
             super().Write("je shortcut" + str(self.ID), "if first operand is false, jump to end")
@@ -479,7 +479,7 @@ class NodeLogical(Node):
             super().Write("popl " + "%eax", "(" + self.op + " operator) Pop second operand")
             operand = "%eax"
 
-        super().Write("cmpl " + "$0, " + operand, "check if second operand is false")
+        super().Write("cmp " + "$0, " + operand, "check if second operand is false")
         if self.op == '&&':
             super().Write("movl $0, %eax", "assume operator && result is False")
             super().Write("je shortcut" + str(self.ID), "if second operand is False, jump")
@@ -659,7 +659,7 @@ class NodeIf(Node):
         else:
             super().Write('popl %eax', "Pop condition value")
 
-        super().Write('cmpl $0, %eax', "Compare IF condition")
+        super().Write('cmp $0, %eax', "Compare IF condition")
         super().Write('je false' + str(self.ID))
 
     def finalJump(self):
@@ -688,7 +688,7 @@ class NodeWhile(Node):
         else:
             super().Write('popl %eax', "Pop condition value")
 
-        super().Write('cmpl $0, %eax', "Compare WHILE condition")
+        super().Write('cmp $0, %eax', "Compare WHILE condition")
         super().Write('jne final' + str(self.ID))
 
     def jumpStart(self):
@@ -899,7 +899,7 @@ class CParser(Parser):
     @_('startWhile WHILE "(" expr ")"')
     def WHILEcondition(self, p):
         node = p[0]
-        node.compare()
+        node.compare(p.expr)
         return node
 
     @_('')
@@ -992,14 +992,14 @@ class CParser(Parser):
         if p[0] in self.functions:
             return NodeFunctionCall(p[0], len(p[2]), p[2], p.lineno)
         else:
-            raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
+            NodeError(p[0] + ' is not a Function', p.lineno)
 
     @_('ID "(" ")"')
     def num(self, p):
         if p[0] in self.functions:
             return NodeFunctionCall(p[0], 0, None, p.lineno)
         else:
-            raise RuntimeError('line ' + str(p.lineno) + ': ' + p[0] + ' is not a Function')
+            NodeError(p[0] + ' is not a Function', p.lineno)
 
     @_('RETURN expr ";"')
     def retInstruction(self, p):
