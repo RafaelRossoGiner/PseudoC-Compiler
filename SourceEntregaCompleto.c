@@ -34,8 +34,6 @@ int main(){
     return 0;
 }
 
-
-
 //Logical/Relations Operations
 int a = 5;
 int main(){
@@ -59,7 +57,6 @@ int main(){
 }
 
 //Functions
-
 //int fun(int num, int* point, int** point2);
 
 int main(){
